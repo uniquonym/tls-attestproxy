@@ -3,9 +3,10 @@
 
   inputs = {
     flake-utils.url = "github:numtide/flake-utils";
+    crane.url = "github:ipetkov/crane";
   };
 
-  outputs = { self, nixpkgs, flake-utils }: flake-utils.lib.eachDefaultSystem (system:
+  outputs = { self, nixpkgs, flake-utils, crane }: flake-utils.lib.eachDefaultSystem (system:
     let pkgs = import nixpkgs { inherit system; }; in
     {
       packages = rec {
@@ -13,7 +14,7 @@
           name = "initramcpio";
           src = ./packcpio;
           depsBuildBuild = [pkgs.cpio pkgs.strip-nondeterminism pkgs.xz];
-          buildPhase = ''./mkcpio.sh ${pkgs.pkgsStatic.busybox}'';
+          buildPhase = ''./mkcpio.sh ${pkgs.pkgsStatic.busybox}  ${pkgs.linuxPackages_latest.kernel}'';
         };
         xzlinux = pkgs.stdenv.mkDerivation {
           name = "xzlinux";
@@ -24,7 +25,7 @@
           name = "bootimg";
           src = ./mkbootimg;
           nativeBuildInputs = [pkgs.mtools pkgs.grub2_efi pkgs.libfaketime pkgs.dosfstools];
-          buildPhase = ''./mkbootimg.sh ${xzlinux} ${initramcpio} ${pkgs.grub2_efi}'';
+          buildPhase = ''./mkbootimg.sh ${xzlinux} ${initramcpio}'';
         };
         default = bootimg;
       };

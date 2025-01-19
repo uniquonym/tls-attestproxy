@@ -11,3 +11,6 @@ extra-sandbox-paths = /usr/libexec/qemu-binfmt /usr/bin/qemu-aarch64-static /usr
 ```
 to /etc/nix/nix.conf to build on AMD64. Be sure to restart nix-daemon after.
 
+# Note in conversion to cross-compilation
+
+Immediately before (qemu-user-binfmt ARM64 from AMD64) SHA-256 image hash: 4425bbba25a94402ba7c78a5bd23f4ba0211643ca6d0456e00fa3483daafeec8

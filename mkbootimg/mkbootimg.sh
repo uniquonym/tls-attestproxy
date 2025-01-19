@@ -2,7 +2,6 @@
 
 LINUX=$1
 INITRAM=$2
-GRUB=$3
 
 mkdir -p "$out"
 mkdir -p bootfiles
@@ -16,7 +15,7 @@ grub-mkimage -O arm64-efi \
              tpm fat normal boot linux configfile xzio gzio
 cat >bootfiles/EFI/boot/grub.cfg <<_END_
 set root=(hd0)
-linux /linux.xz root=/dev/vda
+linux /linux.xz
 initrd /initrd.cpio.xz
 boot
 _END_
