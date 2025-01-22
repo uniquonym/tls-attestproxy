@@ -3,8 +3,8 @@
 export PATH=/bin:/sbin
 echo Running initramfs init now.
 depmod
-echo "Loading tpm module. 2x Invalid ELF header messages are expected while the kernel works out they're compressed."
-modprobe tpm_tis
+# echo "Loading tpm module. 2x Invalid ELF header messages are expected while the kernel works out they're compressed."
+# modprobe tpm_tis
 echo Mounting proc, sys, security
 mkdir /proc /sys
 mount -t proc none /proc
@@ -13,4 +13,8 @@ mount -t securityfs none /sys/kernel/security
 ip link set dev eth0 up
 udhcpc6 eth0
 ip -6 addr
-/bin/sh
+/bin/tls-attestproxy
+echo Proxy exited, rebooting
+sleep 5
+reboot -f
+# /bin/sh
