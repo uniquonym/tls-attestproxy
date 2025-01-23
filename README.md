@@ -59,7 +59,7 @@ so can be validated that way if desired.
 # Note on licence
 
 The code in this repository is licenced under the Apache 2.0 licence. However,
-please note that the nix flake in this repository build binaries that include Linux
+please note that the nix flake in this repository builds binaries that include Linux
 (GPL2 only licenced) and grub2 (GPL3+ licenced), as well as the Apache2 licenced
 code, so if you distribute these binaries, you'll need to comply with all the relevant
 licences. Of course, the entire value of the proxy is to produce attestations provably
