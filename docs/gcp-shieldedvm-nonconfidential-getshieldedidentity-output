@@ -1,0 +1,23 @@
+encryptionKey:
+  ekPub: |
+    -----BEGIN PUBLIC KEY-----
+    MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzZC7kfcY9MZvFylwVcLm
+    KzKOQIzgM5MtRi3ykbTxGNf0FafKItxfKInoEBQxToqRf5oU+1y9FcIIyLkdGVVM
+    7q7r5ox3e9o7X0GbxmKtChz9G/icaU/IGU1lsUCjwHrYRF14aiphxpvoLg+r/e6R
+    dPBBKSSciB+kjq0SBdPOVvVBzvVAr/toiXB/YrpAHA4kPRekuKzO+COSE7BiTDgv
+    Q5o+mMt0eavk2Pjfro4lS2xz5BaAXnCMw7MUYEj80R1WJQ4SIdmUyX/cNUSeKeIw
+    HaRkj6xcboNCvUnK7EXHJq9dtwsRWvgNGuYIa2BvdTbAxJLS1rIS/BbXptURWN8f
+    PwIDAQAB
+    -----END PUBLIC KEY-----
+kind: compute#shieldedInstanceIdentity
+signingKey:
+  ekPub: |
+    -----BEGIN PUBLIC KEY-----
+    MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwv3I/4mlcDGUU2WdAB1H
+    6nlIl8b08jLI0rhyIncBj+a9fSHIF+2GsLwSspFkJm4rjttZCn6UroNkFpjhs+gW
+    k195JLTYlnvQuRHVb9d+Devc1MvtjueQCDcL3C6jTzwsf1h+Nc0K0aBCAiBpr7tT
+    7Q5nARfdyi/x+R4qY4nI7UI0PdRIrUhZychLQmOpsek/3m8ntRHMCWx7pT5IpaKa
+    aKPOdOIG9H+lZ4Lv8Mz++FHF4sbPzlDuFkvXYvYz6xJcLVRAcM/WBY52yb1sgYnu
+    SKKpl8/2z5SWENg/GEFw2QSIGu2Ykx2/OBZUOUGIqTsvpp8oNrNccdzcS2puZQ3d
+    JQIDAQAB
+    -----END PUBLIC KEY-----
