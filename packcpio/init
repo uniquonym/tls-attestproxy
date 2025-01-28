@@ -11,8 +11,8 @@ mount -t proc none /proc
 mount -t sysfs none /sys
 mount -t securityfs none /sys/kernel/security
 ip link set dev eth0 up
-udhcpc6 eth0
-ip -6 addr
+udhcpc eth0
+ip addr
 /bin/tls-attestproxy
 echo Proxy exited, rebooting
 sleep 5

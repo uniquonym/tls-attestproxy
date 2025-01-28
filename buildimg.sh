@@ -1,3 +1,3 @@
 #!/bin/bash
 
-nix build '.#packages.x86_64-linux.aarch64-linux.default'
+nix build '.#packages.x86_64-linux.x86_64-linux.default'

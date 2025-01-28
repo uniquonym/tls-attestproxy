@@ -6,6 +6,8 @@ PROXYBINARY="$3"
 
 mkdir -p img/bin
 cp init img/init
+mkdir -p img/etc/udhcpc
+cp udhcpc-script img/etc/udhcpc/default.script
 cp "$PROXYBINARY" img/bin/tls-attestproxy
 cp -R "$BUSYBOX"/* img/
 mkdir -p img/lib/modules/6.12.9/kernel/drivers/char/

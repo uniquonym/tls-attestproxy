@@ -4,7 +4,7 @@ the built software - so it is essential that the built image is byte-for-byte eq
 to what is expected.
 
 tls-attestproxy is designed to run on aarch64 (ARM) cloud instances, but to be cross-compiled
-from x86_64.
+from `x86_64` - but more commonly to run on `x86_64` and be compiled on the same.
 
 [Install nix](https://nixos.org/download/), [enable Flakes](https://nixos.wiki/wiki/flakes),
 and then clone this repo and run `./buildimg.sh` on an x86_64-linux system. After a while (

@@ -1,21 +1,47 @@
 #!/bin/sh -e
 
-LINUX=$1
-INITRAM=$2
+TARGET=$1
+LINUX=$2
+INITRAM=$3
+SIGNNSS=$4
 
 mkdir -p "$out"
 mkdir -p bootfiles
-cp $LINUX bootfiles/linux.xz
+
+if [ "$TARGET" = "x86_64-linux" ]; then
+    KERNEL=bzImage
+    GRUBARCH=x86_64-efi
+    ARCH=x86_64
+    faketime '1970-01-01 00:00:00+00' pesign -s -i "$LINUX/bzImage" -o bootfiles/bzImage -n "$SIGNNSS" -c SNAKEOIL
+else
+    KERNEL=linux.xz
+    GRUBARCH=arm64-efi
+    ARCH=aarch64
+    cp "$LINUX" bootfiles/linux.xz
+fi
+
 cp "$INITRAM/initrd.cpio.xz" bootfiles/initrd.cpio.xz
 
 mkdir -p bootfiles/EFI/boot
-grub-mkimage -O arm64-efi \
-             -o bootfiles/EFI/boot/bootaa64.efi \
+grub-mkimage -O $GRUBARCH \
+             -o boot.efi \
              -p "(hd0)/EFI/boot" \
-             tpm fat normal boot linux configfile xzio gzio
+             --disable-shim-lock \
+             tpm fat normal boot linux configfile xzio gzio serial terminal
+faketime '1970-01-01 00:00:00+00' pesign -s -i boot.efi -o boot-signed.efi -n "$SIGNNSS" -c SNAKEOIL
+
+if [ "$TARGET" = "x86_64-linux" ]; then
+  cp boot-signed.efi bootfiles/EFI/boot/bootx64.efi
+else
+  cp boot-signed.efi bootfiles/EFI/boot/bootaa64.efi
+fi
+  
 cat >bootfiles/EFI/boot/grub.cfg <<_END_
+serial --speed=115200 --unit=0
+terminal_input serial
+terminal_output serial
 set root=(hd0)
-linux /linux.xz
+linux /$KERNEL console=ttyS0,38400n8
 initrd /initrd.cpio.xz
 boot
 _END_
@@ -28,7 +54,7 @@ usage_size=$(( $(du -s --block-size=1M --apparent-size . | tr -cd '[:digit:]') *
 # Make the image 110% as big as the files need to make up for FAT overhead
 image_size=$(( ($usage_size * 110) / 100 ))
 
-IMAGE="$out/tlsattest-aarch64.rawdisk"
+IMAGE="$out/tlsattest-$ARCH.rawdisk"
 truncate --size=$image_size "$IMAGE"
 mkfs.vfat --invariant -i 96502828 -n EFIBOOT "$IMAGE"
 

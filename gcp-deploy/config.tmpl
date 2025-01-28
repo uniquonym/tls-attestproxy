@@ -1,0 +1,21 @@
+# Select your gcp project (needs to already exist)
+PROJECT=tlsattestproxy
+# The project number.
+# "gcloud projects describe $PROJECT" will show it (replace $PROJECT with project).
+PROJECTNO=123456
+# Pick any valid gcloud region
+REGION=us-west1
+# Pick any valid gcloud zone in your region.
+ZONE=us-west1-a
+# This needs to be unique and can be any valid bucket name.
+# Using uuidgen is a good option.
+ASSET_BUCKET=bucket
+# Give the image a name.
+IMAGE_NAME=tls-attestproxy
+# Also a name for the instance
+MAIN_INSTANCE_NAME=tls-attestproxy
+# Any small x86-64 instance type will do. e2-micro is free tier if you have only one.
+MAIN_INSTANCE_TYPE=e2-micro
+# An IPv4 single-stack is currently preferred (it lets you use standard tier).
+# The default one works if you haven't deleted it.
+SUBNET=default
