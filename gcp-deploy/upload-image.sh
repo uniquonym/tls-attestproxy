@@ -25,7 +25,7 @@ echo Cleaning up old images. Will fail if this is the first time - you can ignor
 #gcloud migration vms image-imports delete "$IMAGE_NAME" \
 #  "--project=$PROJECT" \
 #  "--location=$REGION" || true
-gcloud compute images delete "$IMAGE_NAME" \
+gcloud compute images delete --quiet "$IMAGE_NAME" \
   "--project=$PROJECT" || true       
 
 echo Starting image creation...

@@ -10,6 +10,7 @@ fi
 echo Deleting image. Failing if this is first run is expected and is not a problem.
 
 gcloud compute instances delete "$MAIN_INSTANCE_NAME" \
+    --quiet \
     "--project=$PROJECT" \
     "--zone=$ZONE" || true
 
