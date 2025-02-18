@@ -47,10 +47,13 @@ boot
 _END_
 grub-script-check bootfiles/EFI/boot/grub.cfg
 
+mkdir -p /bootfiles/state
+
 # Size calculation based off the NixOS CD build process (nixpkgs/nixos/modules/installer/cd-dvd/iso-image.nix)
 find . -exec touch --date=2000-01-01 {} +
 # Round up to the nearest multiple of 1MB, for more deterministic du output
-usage_size=$(( $(du -s --block-size=1M --apparent-size . | tr -cd '[:digit:]') * 1024 * 1024 ))
+# Add 2 MB for persistent state (TPM objects etc...)
+usage_size=$(( ($(du -s --block-size=1M --apparent-size . | tr -cd '[:digit:]') + 2) * 1024 * 1024 ))
 # Make the image 110% as big as the files need to make up for FAT overhead
 image_size=$(( ($usage_size * 110) / 100 ))
 
