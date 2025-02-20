@@ -2,20 +2,22 @@
 
 export PATH=/bin:/sbin
 echo Running initramfs init now.
-depmod
-# echo "Loading tpm module. 2x Invalid ELF header messages are expected while the kernel works out they're compressed."
-# modprobe tpm_tis
 echo Mounting proc, sys, security
 mkdir /proc /sys /img
 mount -t proc none /proc
 mount -t sysfs none /sys
 mount -t securityfs none /sys/kernel/security
-mount LABEL=EFIBOOT /img
+# Beware - this disk is untrusted, changing it will not change the PCRs.
+# Be as prescriptive as possible (e.g. no format autodetection), and
+# lock down options to reduce the risk of kernel bugs being exploited
+# by carefully crafted filesystems.
+mount -t vfat -o noexec,nosuid,nodev,nosymfollow LABEL=EFIBOOT /img
 ip link set dev eth0 up
 udhcpc -s /etc/udhcpc/default.script eth0
 ip addr
+export AK_STORAGE_PATH=/img/state/ak.json
 /bin/tls-attestproxy
 echo Proxy exited, rebooting
 sleep 5
 reboot -f
-# /bin/sh
+
