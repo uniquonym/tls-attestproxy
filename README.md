@@ -78,4 +78,4 @@ Start one like this:
 swtpm socket --tpm2 -p 5137 --ctrl type=tcp,port=5138 --tpmstate dir=$HOME/.tpm2 --log level=10 --flags not-need-init,startup-clear
 ```
 
-Then run against it as `TCTI=swtpm:port=5137 cargo run`.
+Then run against it as  `AK_STORAGE_PATH=/tmp/ak.json SIGNKEY_STORAGE_PATH=/tmp/sk.json TCTI=swtpm:port=5137 cargo run`
