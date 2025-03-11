@@ -7,12 +7,19 @@ edition = "2021"
 actix-web = "4.9.0"
 actix-ws = "0.3.0"
 anyhow = "1.0.95"
+bincode = { version = "2.0.0", features = ["serde"] }
+elliptic-curve = { version = "0.13.8", features = ["ecdh"] }
 env_logger = "0.11.6"
 futures-util = "0.3.31"
+k256 = { version = "0.13.4", features = ["serde"] }
 no-panic = "0.1.33"
 serde = "1.0.217"
 serde_json = "1.0.138"
 serde_with = { version = "3.12.0", features = ["base64"] }
+sha2 = "0.10.8"
 # Unfortunately this needs a recent libtss2-sys relative to Debian Bookworm. But it supports more
 # TSS2 commands in the binding. Will need to build through nix or install from source.
 tss-esapi = { git = "https://github.com/parallaxsecond/rust-tss-esapi", rev = "b25394f2e3d24f4bd873682ce7947c9c8793b5a2", features = ["serde"] }
+
+[dev-dependencies]
+hex-literal = "0.4.1"

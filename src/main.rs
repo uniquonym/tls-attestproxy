@@ -19,6 +19,7 @@ use tss_esapi::{
 };
 mod attestation_key;
 mod signing_key;
+mod signed_message;
 
 #[get("/v1/binpcrlog")]
 async fn binarylogsvc() -> impl Responder {

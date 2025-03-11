@@ -1,12 +1,17 @@
 use std::fs::read_to_string;
 
+use crate::attestation_key::TpmResidentKey;
 use anyhow::Context as EContext;
 use serde::{de, ser, Deserialize, Serialize};
 use serde_with::base64::{Base64, Standard};
 use serde_with::formats::Unpadded;
 use serde_with::serde_as;
+use sha2::Digest as SHA2Digest;
+use sha2::Sha256;
+use tss_esapi::constants::SessionType;
 use tss_esapi::handles::KeyHandle;
-use tss_esapi::structures::{Attest, Signature};
+use tss_esapi::interface_types::session_handles::PolicySession;
+use tss_esapi::structures::{Attest, Digest, DigestList, Signature, SymmetricDefinition};
 use tss_esapi::traits::{Marshall, UnMarshall};
 use tss_esapi::{
     attributes::ObjectAttributes,
@@ -24,8 +29,6 @@ use tss_esapi::{
     },
     Context,
 };
-
-use crate::attestation_key::TpmResidentKey;
 
 #[serde_as]
 #[derive(Serialize, Deserialize)]
@@ -99,6 +102,61 @@ fn save_attested_key(key: &StorableAttestedKey, path: &str) -> anyhow::Result<()
     Ok(())
 }
 
+fn relevant_pcrs() -> anyhow::Result<PcrSelectionList> {
+    PcrSelectionList::builder()
+        .with_selection(
+            HashingAlgorithm::Sha256,
+            &[
+                PcrSlot::Slot1,
+                PcrSlot::Slot2,
+                PcrSlot::Slot3,
+                PcrSlot::Slot4,
+                PcrSlot::Slot5,
+                PcrSlot::Slot6,
+                PcrSlot::Slot7,
+                PcrSlot::Slot8,
+                PcrSlot::Slot9,
+            ],
+        )
+        .build()
+        .context("Creating PcrSelectionList")
+}
+
+fn combine_pcr_digests(digest_list: &DigestList) -> anyhow::Result<Digest> {
+    let mut hasher = Sha256::new();
+    for digest in digest_list.value() {
+        hasher.update(digest.as_bytes());
+    }
+    Digest::from_bytes(&hasher.finalize()).context("Wrapping digest")
+}
+
+fn calculate_auth_policy(
+    context: &mut Context,
+    pcr_list: &PcrSelectionList,
+    digest_list: &DigestList,
+) -> anyhow::Result<Digest> {
+    let sess = context
+        .start_auth_session(
+            None,
+            None,
+            None,
+            SessionType::Trial,
+            SymmetricDefinition::Null,
+            HashingAlgorithm::Sha256,
+        )
+        .context("Starting auth policy trial session")?
+        .ok_or_else(|| anyhow::anyhow!("No trial session returned"))?;
+    let policy_sess: PolicySession = sess.try_into().context("Extracting policy session")?;
+
+    let digest = combine_pcr_digests(&digest_list)?;
+    context
+        .policy_pcr(policy_sess, digest, pcr_list.clone())
+        .context("Adding policy_pcr to trial policy")?;
+    context
+        .policy_get_digest(policy_sess)
+        .context("Get digest from policy session")
+}
+
 pub fn load_or_create_signkey(
     context: &mut Context,
     ak: &TpmResidentKey,
@@ -108,6 +166,9 @@ pub fn load_or_create_signkey(
     if let Ok(key) = try_load_attested_key(context, &keypath) {
         return Ok(key);
     }
+    let (_, pcr_list, digest_list) = context.pcr_read(relevant_pcrs()?).context("Reading PCRs")?;
+    let key_policy = calculate_auth_policy(context, &pcr_list, &digest_list)?;
+
     let signkey_public_template: Public = PublicBuilder::new()
         .with_name_hashing_algorithm(HashingAlgorithm::Sha256)
         .with_public_algorithm(PublicAlgorithm::Ecc)
@@ -133,6 +194,7 @@ pub fn load_or_create_signkey(
                 .context("Building PublicEccParameters for SignKey")?,
         )
         .with_ecc_unique_identifier(EccPoint::default())
+        .with_auth_policy(key_policy)
         .build()
         .context("Building public signing key template")?;
     let primary = context
@@ -143,23 +205,11 @@ pub fn load_or_create_signkey(
             None,
             None,
             Some(
-                PcrSelectionList::builder()
-                    .with_selection(
-                        HashingAlgorithm::Sha256,
-                        &[
-                            PcrSlot::Slot1,
-                            PcrSlot::Slot2,
-                            PcrSlot::Slot3,
-                            PcrSlot::Slot4,
-                            PcrSlot::Slot5,
-                            PcrSlot::Slot6,
-                            PcrSlot::Slot7,
-                            PcrSlot::Slot8,
-                            PcrSlot::Slot9,
-                        ],
-                    )
-                    .build()
-                    .context("Creating PcrSelectionList")?,
+                /* Attesting creation PCRs is not strictly required, but it provides
+                defence in depth against flaws if the attestation signature
+                and creation PCRs are validated, but some other check of the
+                attestation is missed. */
+                relevant_pcrs()?,
             ),
         )
         .context("CreatePrimary to create signing key")?;
@@ -207,13 +257,16 @@ pub fn load_or_create_signkey(
     save_attested_key(&storable, &keypath)?;
     Ok(AttestedKey {
         handle: primary_perm.try_into()?,
-        attestation: attestation,
+        attestation,
     })
 }
 
 #[cfg(test)]
 mod test {
-    use super::Attestation;
+    use hex_literal::hex;
+    use tss_esapi::structures::{Digest, DigestList};
+
+    use super::{combine_pcr_digests, Attestation};
 
     #[test]
     fn attestation_serialization_should_roundtrip() {
@@ -222,6 +275,23 @@ mod test {
             serde_json::to_string(&serde_json::from_str::<Attestation>(RAW_ATTEST_SAMPLE).unwrap())
                 .unwrap(),
             RAW_ATTEST_SAMPLE.to_owned()
+        );
+    }
+
+    #[test]
+    fn combine_pcr_digests_should_sum_digests() {
+        let mut digest_list = DigestList::new();
+        digest_list.add(Digest::from(hex!(
+            "ff90d79a6dd90515304f1d69c1fba57cf20174e287d72e81e94f5e8e8c602280"
+        ))).unwrap();
+        digest_list.add(Digest::from(hex!(
+            "292a6b2406428e1fde1a8d3235ce7a2445ce3ff7264b8a0e8128d73453c3b120"
+        ))).unwrap();
+        // echo ff90d79a6dd90515304f1d69c1fba57cf20174e287d72e81e94f5e8e8c602280292a6b2406428e1fde1a8d3235ce7a2445ce3ff7264b8a0e8128d73453c3b120 | xxd -r -p | sha256sum
+        // gives the correct digest.
+        assert_eq!(
+            combine_pcr_digests(&digest_list).unwrap().as_bytes(),
+            hex!("29a8290ec3b706ce0bc1a8fda3782e442cc0a42c04ff713641e4a475f8b8194c")
         );
     }
 }
