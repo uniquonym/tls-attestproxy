@@ -1,25 +1,24 @@
 use std::fs::read;
+use std::sync::Mutex;
 
+use actix_web::web::Data;
 use actix_web::{get, rt, web, App, Error, HttpRequest, HttpResponse, HttpServer, Responder};
-use actix_ws::AggregatedMessage;
 use attestation_key::load_or_create_ak;
-use futures_util::StreamExt as _;
-use signing_key::load_or_create_signkey;
+use certify_protocol::do_certify_protocol;
+use log::info;
+use signing_key::{load_or_create_signkey, AttestedKey};
 use tss_esapi::Tcti;
 use tss_esapi::{
     constants::SessionType,
-    interface_types::{
-        algorithm::HashingAlgorithm,
-        session_handles::AuthSession,
-    },
-    structures::
-        SymmetricDefinition
-    ,
+    interface_types::{algorithm::HashingAlgorithm, session_handles::AuthSession},
+    structures::SymmetricDefinition,
     Context,
 };
 mod attestation_key;
-mod signing_key;
+mod certify_protocol;
+mod secure_connection;
 mod signed_message;
+mod signing_key;
 
 #[get("/v1/binpcrlog")]
 async fn binarylogsvc() -> impl Responder {
@@ -27,30 +26,32 @@ async fn binarylogsvc() -> impl Responder {
 }
 
 #[get("/v1/tlscertify")]
-async fn tlscertify(req: HttpRequest, stream: web::Payload) -> Result<HttpResponse, Error> {
+async fn tlscertify(
+    data: Data<ReqData>,
+    req: HttpRequest,
+    stream: web::Payload,
+) -> Result<HttpResponse, Error> {
     let (res, mut session, stream) = actix_ws::handle(&req, stream)?;
 
     let mut stream = stream
         .aggregate_continuations()
         .max_continuation_size(1000000_usize);
     rt::spawn(async move {
-        while let Some(msg) = stream.next().await {
-            match msg {
-                Ok(AggregatedMessage::Binary(bin)) => {
-                    // echo binary message
-                    session.binary(bin).await.unwrap();
-                }
-
-                Ok(AggregatedMessage::Ping(msg)) => {
-                    // respond to PING frame with PONG frame
-                    session.pong(&msg).await.unwrap();
-                }
-
-                _ => {}
-            }
+        if let Err(err) =
+            do_certify_protocol(&data.context, &data.sign_key, &mut session, &mut stream).await
+        {
+            info!(
+                "Failed to complete certification protocol for stream: {}",
+                err
+            );
         }
     });
     Ok(res)
+}
+
+pub struct ReqData {
+    context: Mutex<Context>,
+    sign_key: AttestedKey,
 }
 
 #[actix_web::main]
@@ -84,7 +85,12 @@ async fn main() -> std::io::Result<()> {
         serde_json::ser::to_string(&sk.attestation).unwrap_or_else(|_| "".to_owned())
     );
 
-    HttpServer::new(|| App::new().service(binarylogsvc))
+    let data = Data::new(ReqData {
+        context: context.into(),
+        sign_key: sk,
+    });
+
+    HttpServer::new(move || App::new().app_data(data.clone()).service(binarylogsvc))
         .bind(("0.0.0.0", 8080))?
         .run()
         .await
