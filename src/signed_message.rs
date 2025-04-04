@@ -11,29 +11,13 @@ use tss_esapi::{
 
 use crate::signing_key::AttestedKey;
 
-#[derive(Serialize, Deserialize, Eq, Ord, Clone, PartialEq, PartialOrd)]
-pub enum TranscriptMessage {
-    ValidServerX509 {
-        server_name: String,
-        // The RFC9162 (Certificate Transparency 2) parameters are for
-        // diagnosis of problems - they make it possible to track down
-        // what certificate was used.
-        rfc9162_log_id: Vec<u8>,
-        rfc9162_leaf_hash: Vec<u8>,
-    },
-    ServerToClient(Vec<u8>),
-    ClientToServer(Vec<u8>),
-    ClosedByClient,
-    ClosedByServer,
-}
-
 #[derive(Serialize, Deserialize, Clone, Eq, Ord, PartialEq, PartialOrd)]
 pub enum SignableMessage {
     EcdhePublicKey(PublicKey),
-    Transcript(Vec<TranscriptMessage>),
+    Transcript(Vec<u8>),
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Ord, PartialOrd, Clone)]
 pub struct SignedMessage {
     message: SignableMessage,
     signature: Vec<u8>,
@@ -55,7 +39,7 @@ pub fn sign_message(
             SignatureScheme::EcSchnorr {
                 scheme: HashScheme::new(HashingAlgorithm::Sha256),
             },
-            None
+            None,
         )
         .context("Signing message")?;
     let signature = sig.marshall()?;
