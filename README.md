@@ -12,6 +12,20 @@ probably including a kernel build), the build will complete, and the raw disk im
 in `./result/tlsattest-aarch64.rawdisk`. Due to reproducible builds, everyone building the
 exact same version of tls-attestproxy should get a bit-for-bit identical result.
 
+# Local testing outside nix
+
+Get the latest https://github.com/tpm2-software/tpm2-tss
+
+Make sure you've installed autoconf, autoconf-archive,
+gnulib, libjson-c-dev & libcurl4-openssl-dev.
+
+Run ./bootstrap -I/usr/share/gnulib/m4/ (may need root since it copies files into gnulib)
+./configure --prefix=/usr/local
+make -j5
+sudo make install
+
+
+
 # Verifying the PCR hashes
 
 The /binpcrlog can be downloaded from a running tls-attestproxy instance at path /binpcrlog.

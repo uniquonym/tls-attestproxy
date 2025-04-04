@@ -24,6 +24,8 @@ sha2 = "0.10.8"
 tss-esapi = { git = "https://github.com/parallaxsecond/rust-tss-esapi", rev = "b25394f2e3d24f4bd873682ce7947c9c8793b5a2", features = ["serde"] }
 rand_core = { version = "0.9.3", features = ["os_rng"] }
 log = "0.4.27"
+rustls = "0.23.25"
+rustls-platform-verifier = "0.5.1"
 
 [dev-dependencies]
 hex-literal = "0.4.1"

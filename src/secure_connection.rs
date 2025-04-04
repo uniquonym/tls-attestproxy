@@ -4,7 +4,6 @@ use aes_gcm::{
 };
 use anyhow::{anyhow, bail, Context as ErrContext};
 use k256::{ecdh::SharedSecret, elliptic_curve::ecdh::EphemeralSecret, PublicKey};
-use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use tss_esapi::Context;
 
