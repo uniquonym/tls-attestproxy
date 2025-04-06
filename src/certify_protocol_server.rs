@@ -21,7 +21,7 @@ use crate::{
         ServerToClientMessage, TargetServernameV1, TranscriptMessage,
     },
     message_signing::sign_message,
-    secure_connection::SecureConnection,
+    secure_connection_server::ServerSecureConnection,
     signed_message::SignableMessage,
     signing_key::AttestedKey,
 };
@@ -54,7 +54,7 @@ struct TLSOpenState {
 
 async fn send_message_to_client(
     session: &mut Session,
-    secure_connection: &mut SecureConnection,
+    secure_connection: &mut ServerSecureConnection,
     msg: &ServerToClientMessage,
     bincfg: Configuration,
 ) -> anyhow::Result<()> {
@@ -70,7 +70,7 @@ async fn handle_send_tlsconn_to_ws(
     tls_state: &mut ClientConnection,
     transcript: &mut Sha256,
     bincfg: Configuration,
-    secure_connection: &mut SecureConnection,
+    secure_connection: &mut ServerSecureConnection,
     open_state: &mut TLSOpenState,
 ) -> anyhow::Result<()> {
     while tls_state.wants_write() {
@@ -146,7 +146,7 @@ pub async fn do_certify_protocol_server(
     };
 
     let (mut conn, server_cert) =
-        SecureConnection::new(&mut context.lock().unwrap(), client_pubkey, attested_key)?;
+        ServerSecureConnection::new(&mut context.lock().unwrap(), client_pubkey, attested_key)?;
 
     session
         .binary(bincode::serde::encode_to_vec(server_cert, bincfg)?)
@@ -208,7 +208,7 @@ async fn certify_core_loop(
     session: &mut Session,
     stream: &mut AggregatedMessageStream,
     bincfg: Configuration,
-    conn: &mut SecureConnection,
+    conn: &mut ServerSecureConnection,
     servername: TargetServernameV1,
     tls_state: &mut ClientConnection,
     transcript: &mut Sha256,
@@ -302,7 +302,7 @@ async fn check_cert_verified(
     open_state: &mut TLSOpenState,
     servername: &TargetServernameV1,
     tls_state: &ClientConnection,
-    secure_connection: &mut SecureConnection,
+    secure_connection: &mut ServerSecureConnection,
     transcript: &mut Sha256,
 ) -> Result<(), anyhow::Error> {
     if !open_state.verified_cert {
