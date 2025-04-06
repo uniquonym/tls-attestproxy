@@ -20,8 +20,9 @@ use crate::{
         add_message_to_transcript, ClientIntroMessage, ClientToServerMessage,
         ServerToClientMessage, TargetServernameV1, TranscriptMessage,
     },
+    message_signing::sign_message,
     secure_connection::SecureConnection,
-    signed_message::{sign_message, SignableMessage},
+    signed_message::SignableMessage,
     signing_key::AttestedKey,
 };
 
@@ -184,7 +185,8 @@ pub async fn do_certify_protocol_server(
             &mut conn,
             &ServerToClientMessage::EncounteredError(e.to_string()),
             bincfg,
-        ).await?;
+        )
+        .await?;
         return Err(e);
     }
 

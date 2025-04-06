@@ -19,6 +19,7 @@ mod certify_protocol;
 mod certify_protocol_server;
 mod secure_connection;
 mod signed_message;
+mod message_signing;
 mod signing_key;
 
 #[get("/v1/binpcrlog")]

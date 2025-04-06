@@ -8,7 +8,8 @@ use sha2::Sha256;
 use tss_esapi::Context;
 
 use crate::{
-    signed_message::{sign_message, SignableMessage, SignedMessage},
+    message_signing::sign_message,
+    signed_message::{SignableMessage, SignedMessage},
     signing_key::AttestedKey,
 };
 
@@ -78,10 +79,7 @@ impl SecureConnection {
         ))
     }
 
-    pub fn encrypt_server_to_client(
-        &mut self,
-        plaintext: &[u8],
-    ) -> anyhow::Result<Vec<u8>> {
+    pub fn encrypt_server_to_client(&mut self, plaintext: &[u8]) -> anyhow::Result<Vec<u8>> {
         let nonce = create_nonce(FlowDirection::ServerToClient, self.server_sequence);
 
         let payload = Payload {
@@ -101,10 +99,7 @@ impl SecureConnection {
         Ok(ciphertext)
     }
 
-    pub fn decrypt_client_to_server(
-        &mut self,
-        ciphertext: &[u8],
-    ) -> anyhow::Result<Vec<u8>> {
+    pub fn decrypt_client_to_server(&mut self, ciphertext: &[u8]) -> anyhow::Result<Vec<u8>> {
         let nonce = create_nonce(FlowDirection::ClientToServer, self.client_sequence);
 
         let payload = Payload {
