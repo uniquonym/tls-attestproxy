@@ -26,6 +26,8 @@ rand_core = { version = "0.9.3", features = ["os_rng"] }
 log = "0.4.27"
 rustls = "0.23.25"
 rustls-platform-verifier = "0.5.1"
+der = "0.7.9"
+x509-cert = { version = "0.2.5", features = ["sct"] }
 
 [dev-dependencies]
 hex-literal = "0.4.1"

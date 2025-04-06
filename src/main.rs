@@ -4,7 +4,7 @@ use std::sync::Mutex;
 use actix_web::web::Data;
 use actix_web::{get, rt, web, App, Error, HttpRequest, HttpResponse, HttpServer, Responder};
 use attestation_key::load_or_create_ak;
-use certify_protocol::do_certify_protocol;
+use certify_protocol_server::do_certify_protocol_server;
 use log::info;
 use signing_key::{load_or_create_signkey, AttestedKey};
 use tss_esapi::Tcti;
@@ -16,6 +16,7 @@ use tss_esapi::{
 };
 mod attestation_key;
 mod certify_protocol;
+mod certify_protocol_server;
 mod secure_connection;
 mod signed_message;
 mod signing_key;
@@ -38,7 +39,7 @@ async fn tlscertify(
         .max_continuation_size(1000000_usize);
     rt::spawn(async move {
         if let Err(err) =
-            do_certify_protocol(&data.context, &data.sign_key, &mut session, &mut stream).await
+            do_certify_protocol_server(&data.context, &data.sign_key, &mut session, &mut stream).await
         {
             info!(
                 "Failed to complete certification protocol for stream: {}",
