@@ -31,6 +31,10 @@
           "x86_64-linux" = "x86_64-unknown-linux-gnu-cc";
           "aarch64-linux" = "aarch64-unknown-linux-gnu-cc";
         };
+        craneLib = (crane.mkLib crossPkgs).overrideToolchain (p: p.rust-bin.stable.latest.default.override {
+          targets = [ muslTargets.${targetSystem} ];
+        });
+        src = craneLib.cleanCargoSource ./.;
       in
         {
           packages = rec {
@@ -95,13 +99,14 @@
               nativeBuildInputs = [pkgs.mtools crossPkgs.grub2_efi pkgs.libfaketime pkgs.dosfstools pesign];
               buildPhase = ''./mkbootimg.sh ${targetSystem} ${xzlinux} ${initramcpio} ${./snakeoil-pesign/nss}'';
             };
-            craneLib = (crane.mkLib crossPkgs).overrideToolchain (p: p.rust-bin.stable.latest.default.override {
-              targets = [ muslTargets.${targetSystem} ];
-            });
             attestproxy-crate = craneLib.buildPackage {
-              src = craneLib.cleanCargoSource ./.;
               strictDeps = true;
-              
+              inherit (craneLib.crateNameFromCargoToml { inherit src; pname = "tls-attestproxy"; }) version;
+              inherit src;
+              pname = "tls-attestproxy";
+              cargoExtraArgs = "-p tls-attestproxy";
+              buildInputs = [ pkgs.tpm2-tss ];
+              nativeBuildInputs = [ pkgs.pkg-config ];
               CARGO_BUILD_TARGET = muslTargets.${targetSystem};
               CARGO_BUILD_RUSTFLAGS = "-C target-feature=+crt-static -C linker=${if targetSystem == buildSystem then "cc" else ccTargets.${targetSystem}}";
             };
