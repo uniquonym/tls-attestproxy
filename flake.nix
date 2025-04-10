@@ -35,6 +35,11 @@
           targets = [ muslTargets.${targetSystem} ];
         });
         src = craneLib.cleanCargoSource ./.;
+        tpm2-tss = crossPkgs.pkgsStatic.tpm2-tss.overrideAttrs (oldAttrs: {
+          doCheck = false;
+          doInstallCheck = false;
+          configureFlags = oldAttrs.configureFlags ++ ["--disable-integration"];
+        });
       in
         {
           packages = rec {
@@ -105,7 +110,7 @@
               inherit src;
               pname = "tls-attestproxy";
               cargoExtraArgs = "-p tls-attestproxy";
-              buildInputs = [ pkgs.tpm2-tss ];
+              buildInputs = [ tpm2-tss ];
               nativeBuildInputs = [ pkgs.pkg-config ];
               CARGO_BUILD_TARGET = muslTargets.${targetSystem};
               CARGO_BUILD_RUSTFLAGS = "-C target-feature=+crt-static -C linker=${if targetSystem == buildSystem then "cc" else ccTargets.${targetSystem}}";
