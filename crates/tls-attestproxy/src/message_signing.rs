@@ -25,7 +25,7 @@ pub fn sign_message(
         .sign(
             sign_key.handle,
             digest,
-            SignatureScheme::EcSchnorr {
+            SignatureScheme::EcDsa {
                 scheme: HashScheme::new(HashingAlgorithm::Sha256),
             },
             None,

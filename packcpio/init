@@ -1,23 +1,42 @@
 #!/bin/sh
 
-export PATH=/bin:/sbin
 echo Running initramfs init now.
+source /etc/nixenv
+
 echo Mounting proc, sys, security
 mkdir /proc /sys /img
 mount -t proc none /proc
 mount -t sysfs none /sys
 mount -t securityfs none /sys/kernel/security
+
+echo Populating devices
+mdev -s
+
+# To help debugging...
+# echo Listing partitions
+# cat /proc/partitions
+# echo Listing block IDs and labels
+# blkid
+# echo Showing devices
+# ls /dev
+
 # Beware - this disk is untrusted, changing it will not change the PCRs.
 # Be as prescriptive as possible (e.g. no format autodetection), and
 # lock down options to reduce the risk of kernel bugs being exploited
 # by carefully crafted filesystems.
 mount -t vfat -o noexec,nosuid,nodev,nosymfollow LABEL=EFIBOOT /img
+echo Recent kernel logs...
+dmesg | tail
 ip link set dev eth0 up
 udhcpc -s /etc/udhcpc/default.script eth0
 ip addr
+
+export TCTI=device:/dev/tpm0
 export AK_STORAGE_PATH=/img/state/ak.json
-/bin/tls-attestproxy
+export SIGNKEY_STORAGE_PATH=/img/state/sk.json
+
+tls-attestproxy
 echo Proxy exited, rebooting
-sleep 5
+sleep 10
 reboot -f
 

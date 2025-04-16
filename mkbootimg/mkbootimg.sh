@@ -47,7 +47,7 @@ boot
 _END_
 grub-script-check bootfiles/EFI/boot/grub.cfg
 
-mkdir -p /bootfiles/state
+mkdir -p bootfiles/state
 
 # Size calculation based off the NixOS CD build process (nixpkgs/nixos/modules/installer/cd-dvd/iso-image.nix)
 find . -exec touch --date=2000-01-01 {} +

@@ -166,8 +166,10 @@ pub fn load_or_create_signkey(
     if let Ok(key) = try_load_attested_key(context, &keypath) {
         return Ok(key);
     }
-    let (_, pcr_list, digest_list) = context.pcr_read(relevant_pcrs()?).context("Reading PCRs")?;
-    let key_policy = calculate_auth_policy(context, &pcr_list, &digest_list)?;
+    let key_policy = context.execute_without_session(|context| {
+        let (_, pcr_list, digest_list) = context.pcr_read(relevant_pcrs()?).context("Reading PCRs")?;
+        calculate_auth_policy(context, &pcr_list, &digest_list)
+    })?;
 
     let signkey_public_template: Public = PublicBuilder::new()
         .with_name_hashing_algorithm(HashingAlgorithm::Sha256)
@@ -184,7 +186,7 @@ pub fn load_or_create_signkey(
         .with_ecc_parameters(
             PublicEccParameters::builder()
                 .with_symmetric(SymmetricDefinitionObject::Null)
-                .with_ecc_scheme(EccScheme::EcSchnorr(HashScheme::new(
+                .with_ecc_scheme(EccScheme::EcDsa(HashScheme::new(
                     HashingAlgorithm::Sha256,
                 )))
                 .with_curve(EccCurve::NistP256)
@@ -281,12 +283,16 @@ mod test {
     #[test]
     fn combine_pcr_digests_should_sum_digests() {
         let mut digest_list = DigestList::new();
-        digest_list.add(Digest::from(hex!(
-            "ff90d79a6dd90515304f1d69c1fba57cf20174e287d72e81e94f5e8e8c602280"
-        ))).unwrap();
-        digest_list.add(Digest::from(hex!(
-            "292a6b2406428e1fde1a8d3235ce7a2445ce3ff7264b8a0e8128d73453c3b120"
-        ))).unwrap();
+        digest_list
+            .add(Digest::from(hex!(
+                "ff90d79a6dd90515304f1d69c1fba57cf20174e287d72e81e94f5e8e8c602280"
+            )))
+            .unwrap();
+        digest_list
+            .add(Digest::from(hex!(
+                "292a6b2406428e1fde1a8d3235ce7a2445ce3ff7264b8a0e8128d73453c3b120"
+            )))
+            .unwrap();
         // echo ff90d79a6dd90515304f1d69c1fba57cf20174e287d72e81e94f5e8e8c602280292a6b2406428e1fde1a8d3235ce7a2445ce3ff7264b8a0e8128d73453c3b120 | xxd -r -p | sha256sum
         // gives the correct digest.
         assert_eq!(

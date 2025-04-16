@@ -23,31 +23,39 @@
                            overlays = [ (import rust-overlay) ];
                          }
         ;
-        muslTargets = {
-          "x86_64-linux" = "x86_64-unknown-linux-musl";
-          "aarch64-linux" = "aarch64-unknown-linux-musl";
-        };
-        ccTargets = {
-          "x86_64-linux" = "x86_64-unknown-linux-gnu-cc";
-          "aarch64-linux" = "aarch64-unknown-linux-gnu-cc";
-        };
-        craneLib = (crane.mkLib crossPkgs).overrideToolchain (p: p.rust-bin.stable.latest.default.override {
-          targets = [ muslTargets.${targetSystem} ];
-        });
+        craneLib = (crane.mkLib crossPkgs).overrideToolchain (p: p.rust-bin.stable.latest.default);
         src = craneLib.cleanCargoSource ./.;
-        tpm2-tss = crossPkgs.pkgsStatic.tpm2-tss.overrideAttrs (oldAttrs: {
+        tpm2-tss = crossPkgs.tpm2-tss.overrideAttrs (oldAttrs: {
           doCheck = false;
           doInstallCheck = false;
           configureFlags = oldAttrs.configureFlags ++ ["--disable-integration"];
         });
+        attestproxy-crate = craneLib.buildPackage {
+          strictDeps = true;
+          inherit (craneLib.crateNameFromCargoToml { inherit src; pname = "tls-attestproxy"; }) version;
+          inherit src;
+          pname = "tls-attestproxy";
+          cargoExtraArgs = "-p tls-attestproxy";
+          buildInputs = [ tpm2-tss ];
+          nativeBuildInputs = [ pkgs.pkg-config ];
+        };
+        initramfs-closure = pkgs.writeClosure [ attestproxy-crate crossPkgs.busybox ];
       in
         {
           packages = rec {
             initramcpio = crossPkgs.stdenv.mkDerivation {
               name = "initramcpio";
               src = ./packcpio;
-              depsBuildBuild = [pkgs.cpio pkgs.strip-nondeterminism pkgs.xz];
-              buildPhase = ''./mkcpio.sh ${crossPkgs.pkgsStatic.busybox}  ${linux} ${attestproxy-crate}/bin/tls-attestproxy'';
+              depsBuildBuild = [
+                pkgs.cpio
+                pkgs.strip-nondeterminism pkgs.xz
+              ];
+              # Solely to get them on the path that's embedded into image.
+              buildInputs = [
+                attestproxy-crate
+                crossPkgs.busybox
+              ];
+              buildPhase = ''./mkcpio.sh ${initramfs-closure}  ${linux}'';
             };
             linux = crossPkgs.linuxManualConfig {
               version = crossPkgs.linuxPackages_6_12.kernel.version;
@@ -103,17 +111,6 @@
               src = ./mkbootimg;
               nativeBuildInputs = [pkgs.mtools crossPkgs.grub2_efi pkgs.libfaketime pkgs.dosfstools pesign];
               buildPhase = ''./mkbootimg.sh ${targetSystem} ${xzlinux} ${initramcpio} ${./snakeoil-pesign/nss}'';
-            };
-            attestproxy-crate = craneLib.buildPackage {
-              strictDeps = true;
-              inherit (craneLib.crateNameFromCargoToml { inherit src; pname = "tls-attestproxy"; }) version;
-              inherit src;
-              pname = "tls-attestproxy";
-              cargoExtraArgs = "-p tls-attestproxy";
-              buildInputs = [ tpm2-tss ];
-              nativeBuildInputs = [ pkgs.pkg-config ];
-              CARGO_BUILD_TARGET = muslTargets.${targetSystem};
-              CARGO_BUILD_RUSTFLAGS = "-C target-feature=+crt-static -C linker=${if targetSystem == buildSystem then "cc" else ccTargets.${targetSystem}}";
             };
             default = bootimg;
           };
