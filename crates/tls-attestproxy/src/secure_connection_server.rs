@@ -1,19 +1,15 @@
-use tls_attestclient::secure_connection::{
-    create_nonce, derive_cipher_key, FlowDirection, SecureConnectionState,
-};
 use aes_gcm::{
     aead::{Aead, KeyInit, OsRng, Payload},
     Aes256Gcm,
 };
 use anyhow::{bail, Context as ErrContext};
 use k256::{elliptic_curve::ecdh::EphemeralSecret, PublicKey};
+use tls_attestclient::secure_connection::{
+    create_nonce, derive_cipher_key, FlowDirection, SecureConnectionState,
+};
 use tss_esapi::Context;
 
-use crate::{
-    message_signing::sign_message,
-    
-    signing_key::AttestedKey,
-};
+use crate::{message_signing::sign_message, signing_key::AttestedKey};
 use tls_attestclient::signed_message::{SignableMessage, SignedMessage};
 
 pub struct ServerSecureConnection(SecureConnectionState);
