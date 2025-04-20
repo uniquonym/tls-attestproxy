@@ -16,14 +16,15 @@ use tss_esapi::Context;
 use x509_cert::{ext::pkix::SignedCertificateTimestampList, Certificate};
 
 use crate::{
+    message_signing::sign_message, secure_connection_server::ServerSecureConnection,
+    signing_key::AttestedKey,
+};
+use tls_attestclient::{
     certify_protocol::{
         add_message_to_transcript, ClientIntroMessage, ClientToServerMessage,
         ServerToClientMessage, TargetServernameV1, TranscriptMessage,
     },
-    message_signing::sign_message,
-    secure_connection_server::ServerSecureConnection,
     signed_message::SignableMessage,
-    signing_key::AttestedKey,
 };
 
 async fn read_next_ws_binary(

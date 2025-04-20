@@ -1,0 +1,15 @@
+[package]
+name = "tls-attestclient"
+edition = "2024"
+version.workspace = true
+
+[dependencies]
+bincode = { version = "2.0.0", features = ["serde"] }
+k256 = { version = "0.13.4", features = ["serde", "ecdh"] }
+workspace-hack = { version = "0.1", path = "../workspace-hack" }
+serde = "1.0.217"
+serde_json = "1.0.138"
+serde_with = { version = "3.12.0", features = ["base64"] }
+sha2 = "0.10.8"
+aes-gcm = "0.10.3"
+anyhow = "1.0.95"

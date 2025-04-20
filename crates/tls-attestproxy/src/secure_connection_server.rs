@@ -1,4 +1,4 @@
-use crate::secure_connection::{
+use tls_attestclient::secure_connection::{
     create_nonce, derive_cipher_key, FlowDirection, SecureConnectionState,
 };
 use aes_gcm::{
@@ -11,9 +11,10 @@ use tss_esapi::Context;
 
 use crate::{
     message_signing::sign_message,
-    signed_message::{SignableMessage, SignedMessage},
+    
     signing_key::AttestedKey,
 };
+use tls_attestclient::signed_message::{SignableMessage, SignedMessage};
 
 pub struct ServerSecureConnection(SecureConnectionState);
 impl ServerSecureConnection {

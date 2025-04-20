@@ -15,11 +15,8 @@ use tss_esapi::{
     Context,
 };
 mod attestation_key;
-mod certify_protocol;
 mod certify_protocol_server;
-mod secure_connection;
 mod secure_connection_server;
-mod signed_message;
 mod message_signing;
 mod signing_key;
 

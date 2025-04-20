@@ -7,10 +7,8 @@ use tss_esapi::{
     Context,
 };
 
-use crate::{
-    signed_message::{SignableMessage, SignedMessage},
-    signing_key::AttestedKey,
-};
+use crate::signing_key::AttestedKey;
+use tls_attestclient::signed_message::{SignableMessage, SignedMessage};
 
 pub fn sign_message(
     context: &mut Context,
