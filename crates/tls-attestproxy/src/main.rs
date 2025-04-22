@@ -16,8 +16,8 @@ use tss_esapi::{
 };
 mod attestation_key;
 mod certify_protocol_server;
-mod secure_connection_server;
 mod message_signing;
+mod secure_connection_server;
 mod signing_key;
 
 #[get("/v1/binpcrlog")]
@@ -38,7 +38,8 @@ async fn tlscertify(
         .max_continuation_size(1000000_usize);
     rt::spawn(async move {
         if let Err(err) =
-            do_certify_protocol_server(&data.context, &data.sign_key, &mut session, &mut stream).await
+            do_certify_protocol_server(&data.context, &data.sign_key, &mut session, &mut stream)
+                .await
         {
             info!(
                 "Failed to complete certification protocol for stream: {}",
@@ -90,8 +91,13 @@ async fn main() -> std::io::Result<()> {
         sign_key: sk,
     });
 
-    HttpServer::new(move || App::new().app_data(data.clone()).service(binarylogsvc))
-        .bind(("0.0.0.0", 8080))?
-        .run()
-        .await
+    HttpServer::new(move || {
+        App::new()
+            .app_data(data.clone())
+            .service(binarylogsvc)
+            .service(tlscertify)
+    })
+    .bind(("0.0.0.0", 8080))?
+    .run()
+    .await
 }

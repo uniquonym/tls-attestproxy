@@ -1,13 +1,12 @@
 use std::fs::read_to_string;
 
 use crate::attestation_key::TpmResidentKey;
-use anyhow::Context as EContext;
+use anyhow::{anyhow, Context as EContext};
 use serde::{de, ser, Deserialize, Serialize};
-use serde_with::base64::{Base64, Standard};
-use serde_with::formats::Unpadded;
 use serde_with::serde_as;
 use sha2::Digest as SHA2Digest;
 use sha2::Sha256;
+use tls_attestclient::signing_key_attestation::AttestationRaw;
 use tss_esapi::constants::SessionType;
 use tss_esapi::handles::KeyHandle;
 use tss_esapi::interface_types::session_handles::PolicySession;
@@ -30,41 +29,38 @@ use tss_esapi::{
     Context,
 };
 
-#[serde_as]
-#[derive(Serialize, Deserialize)]
-struct AttestationRaw {
-    #[serde_as(as = "Base64<Standard, Unpadded>")]
-    attest: Vec<u8>,
-    #[serde_as(as = "Base64<Standard, Unpadded>")]
-    sig: Vec<u8>,
-}
-
-#[serde_as]
-#[derive(Serialize, Deserialize)]
-pub struct StorableAttestedKey {
-    serdata: Vec<u8>,
-    attestation: Attestation,
-}
-
 #[derive(Clone, Debug)]
-pub struct Attestation(Attest, Signature);
+pub struct Attestation(Attest, Signature, Public);
+
+impl TryInto<AttestationRaw> for Attestation {
+    type Error = anyhow::Error;
+
+    fn try_into(self) -> Result<AttestationRaw, Self::Error> {
+        Ok(AttestationRaw {
+            attest: self
+                .0
+                .marshall()
+                .map_err(|_| anyhow!("Can't marshall attestation body"))?,
+            sig: self
+                .1
+                .marshall()
+                .map_err(|_| anyhow!("Can't marshall attestation signature"))?,
+            public: self
+                .2
+                .marshall()
+                .map_err(|_| anyhow!("Can't marshall public area"))?,
+        })
+    }
+}
 
 impl Serialize for Attestation {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
-        AttestationRaw {
-            attest: self
-                .0
-                .marshall()
-                .map_err(|_| ser::Error::custom("Can't marshall attestation body"))?,
-            sig: self
-                .1
-                .marshall()
-                .map_err(|_| ser::Error::custom("Can't marshall attestation signature"))?,
-        }
-        .serialize(serializer)
+        <Self as TryInto<AttestationRaw>>::try_into(self.clone())
+            .map_err(|e| ser::Error::custom(anyhow::Error::msg(e)))?
+            .serialize(serializer)
     }
 }
 
@@ -78,8 +74,17 @@ impl<'de> Deserialize<'de> for Attestation {
             .map_err(|_| de::Error::custom("Cant unmarshall attestation body"))?;
         let sig = Signature::unmarshall(&raw.sig)
             .map_err(|_| de::Error::custom("Cant unmarshall signature body"))?;
-        Ok(Self(attest, sig))
+        let public = Public::unmarshall(&raw.public)
+            .map_err(|_| de::Error::custom("Cant unmarshall public area"))?;
+        Ok(Self(attest, sig, public))
     }
+}
+
+#[serde_as]
+#[derive(Serialize, Deserialize)]
+pub struct StorableAttestedKey {
+    serdata: Vec<u8>,
+    attestation: Attestation,
 }
 
 pub struct AttestedKey {
@@ -167,7 +172,8 @@ pub fn load_or_create_signkey(
         return Ok(key);
     }
     let key_policy = context.execute_without_session(|context| {
-        let (_, pcr_list, digest_list) = context.pcr_read(relevant_pcrs()?).context("Reading PCRs")?;
+        let (_, pcr_list, digest_list) =
+            context.pcr_read(relevant_pcrs()?).context("Reading PCRs")?;
         calculate_auth_policy(context, &pcr_list, &digest_list)
     })?;
 
@@ -186,9 +192,7 @@ pub fn load_or_create_signkey(
         .with_ecc_parameters(
             PublicEccParameters::builder()
                 .with_symmetric(SymmetricDefinitionObject::Null)
-                .with_ecc_scheme(EccScheme::EcDsa(HashScheme::new(
-                    HashingAlgorithm::Sha256,
-                )))
+                .with_ecc_scheme(EccScheme::EcDsa(HashScheme::new(HashingAlgorithm::Sha256)))
                 .with_curve(EccCurve::NistP256)
                 .with_key_derivation_function_scheme(KeyDerivationFunctionScheme::Null)
                 .with_is_signing_key(true)
@@ -251,7 +255,7 @@ pub fn load_or_create_signkey(
         .context("Making signing key persistent")?;
 
     let primary_ser = context.tr_serialize(primary_perm)?;
-    let attestation = Attestation(attestation.0, attestation.1);
+    let attestation = Attestation(attestation.0, attestation.1, primary.out_public);
     let storable = StorableAttestedKey {
         serdata: primary_ser,
         attestation: attestation.clone(),

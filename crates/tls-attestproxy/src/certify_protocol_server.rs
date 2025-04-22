@@ -25,6 +25,7 @@ use tls_attestclient::{
         ServerToClientMessage, TargetServernameV1, TranscriptMessage,
     },
     signed_message::SignableMessage,
+    signing_key_attestation::AttestationRaw,
 };
 
 async fn read_next_ws_binary(
@@ -149,8 +150,12 @@ pub async fn do_certify_protocol_server(
     let (mut conn, server_cert) =
         ServerSecureConnection::new(&mut context.lock().unwrap(), client_pubkey, attested_key)?;
 
+    let key_attestation: AttestationRaw = attested_key.attestation.clone().try_into()?;
     session
-        .binary(bincode::serde::encode_to_vec(server_cert, bincfg)?)
+        .binary(bincode::serde::encode_to_vec(
+            (server_cert, key_attestation),
+            bincfg,
+        )?)
         .await?;
 
     // Step 2: The client sends the target servername...
