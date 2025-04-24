@@ -3,7 +3,7 @@ use aes_gcm::{
     Aes256Gcm,
 };
 use anyhow::{bail, Context as ErrContext};
-use k256::{elliptic_curve::ecdh::EphemeralSecret, PublicKey};
+use p256::{elliptic_curve::ecdh::EphemeralSecret, PublicKey};
 use tls_attestclient::secure_connection::{
     create_nonce, derive_cipher_key, FlowDirection, SecureConnectionState,
 };

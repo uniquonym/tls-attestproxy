@@ -1,6 +1,6 @@
 use aes_gcm::{AeadCore, Aes256Gcm, Key, Nonce};
 use anyhow::anyhow;
-use k256::ecdh::SharedSecret;
+use p256::ecdh::SharedSecret;
 use sha2::Sha256;
 
 pub struct SecureConnectionState {

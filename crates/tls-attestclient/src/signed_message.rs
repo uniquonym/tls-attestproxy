@@ -1,4 +1,4 @@
-use k256::PublicKey;
+use p256::PublicKey;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Eq, Ord, PartialEq, PartialOrd)]

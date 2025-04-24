@@ -1,24 +1,18 @@
 use std::fs::read;
+use std::path::PathBuf;
+use std::str::FromStr;
 use std::sync::Mutex;
 
 use actix_web::web::Data;
 use actix_web::{get, rt, web, App, Error, HttpRequest, HttpResponse, HttpServer, Responder};
-use attestation_key::load_or_create_ak;
-use certify_protocol_server::do_certify_protocol_server;
+use anyhow::Context as EContext;
 use log::info;
-use signing_key::{load_or_create_signkey, AttestedKey};
+use tls_attestproxy::attestation_key::load_or_create_ak;
+use tls_attestproxy::certify_protocol_server::do_certify_protocol_server;
+use tls_attestproxy::signing_key::{load_or_create_signkey, AttestedKey};
+use tls_attestproxy::start_tpm_session;
+use tss_esapi::Context;
 use tss_esapi::Tcti;
-use tss_esapi::{
-    constants::SessionType,
-    interface_types::{algorithm::HashingAlgorithm, session_handles::AuthSession},
-    structures::SymmetricDefinition,
-    Context,
-};
-mod attestation_key;
-mod certify_protocol_server;
-mod message_signing;
-mod secure_connection_server;
-mod signing_key;
 
 #[get("/v1/binpcrlog")]
 async fn binarylogsvc() -> impl Responder {
@@ -63,23 +57,25 @@ async fn main() -> std::io::Result<()> {
         Context::new(Tcti::from_environment_variable().expect("Valid TCTI environment setup"))
             .expect("Expected to be able to access tpm2");
 
-    let hmac_sess: AuthSession = context
-        .start_auth_session(
-            None,
-            None,
-            None,
-            SessionType::Hmac,
-            SymmetricDefinition::AES_256_CFB,
-            HashingAlgorithm::Sha256,
-        )
-        .expect("Expected to create an HMAC session.")
-        .unwrap();
+    start_tpm_session(&mut context);
 
-    context.set_sessions((Some(hmac_sess), None, None));
+    let ak_keypath = PathBuf::from_str(
+        &std::env::var("AK_STORAGE_PATH")
+            .context("Fetching AK_STORAGE_PATH environment")
+            .unwrap(),
+    )
+    .unwrap();
+    let sk_keypath = PathBuf::from_str(
+        &std::env::var("SIGNKEY_STORAGE_PATH")
+            .context("Fetching SIGNKEY_STORAGE_PATH environment")
+            .unwrap(),
+    )
+    .unwrap();
 
-    let ak = load_or_create_ak(&mut context).expect("Expected to have created attestation key");
-    let sk =
-        load_or_create_signkey(&mut context, &ak).expect("Expected to have created signing key");
+    let ak = load_or_create_ak(&mut context, &ak_keypath)
+        .expect("Expected to have created attestation key");
+    let sk = load_or_create_signkey(&mut context, &ak, &sk_keypath)
+        .expect("Expected to have created signing key");
 
     println!(
         "My attestation: {}",

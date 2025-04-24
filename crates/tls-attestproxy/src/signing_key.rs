@@ -1,4 +1,5 @@
 use std::fs::read_to_string;
+use std::path::Path;
 
 use crate::attestation_key::TpmResidentKey;
 use anyhow::{anyhow, Context as EContext};
@@ -92,7 +93,7 @@ pub struct AttestedKey {
     pub attestation: Attestation,
 }
 
-fn try_load_attested_key(context: &mut Context, path: &str) -> anyhow::Result<AttestedKey> {
+fn try_load_attested_key(context: &mut Context, path: &Path) -> anyhow::Result<AttestedKey> {
     let data = read_to_string(path)?;
     let storable_key: StorableAttestedKey = serde_json::from_str(&data)?;
     let handle: KeyHandle = context.tr_deserialize(&storable_key.serdata)?.try_into()?;
@@ -102,24 +103,35 @@ fn try_load_attested_key(context: &mut Context, path: &str) -> anyhow::Result<At
     })
 }
 
-fn save_attested_key(key: &StorableAttestedKey, path: &str) -> anyhow::Result<()> {
+fn save_attested_key(key: &StorableAttestedKey, path: &Path) -> anyhow::Result<()> {
     std::fs::write(path, &serde_json::to_string(key)?)?;
     Ok(())
 }
 
-fn relevant_pcrs() -> anyhow::Result<PcrSelectionList> {
+// Note: The code to fetch PCRs only works for up to 8 PCRs,
+// so take that into account before updating.
+pub fn relevant_pcrs() -> anyhow::Result<PcrSelectionList> {
     PcrSelectionList::builder()
         .with_selection(
             HashingAlgorithm::Sha256,
             &[
-                PcrSlot::Slot1,
-                PcrSlot::Slot2,
-                PcrSlot::Slot3,
+                // PCR0 = BIOS / firmware. Cloud provider responsibility, assume they
+                // won't sign if insecure, but could change (so exclude).
+                // PCR1 = Boot config. Cloud provider responsibility.
+                // PCR2 = Only a separator - unused.
+                // PCR3 = Only a separator - unused.
+                // PCR4 = EFI actions - including grub loader hash, kernel hash (critical to security)
                 PcrSlot::Slot4,
+                // PCR5 = Less critical EFI actions
                 PcrSlot::Slot5,
-                PcrSlot::Slot6,
+                // PCR6 = Only a separator - unused.
+                // PCR7 = Secure Boot EFI config.
+                // (nice to have in case config induces wrong
+                //  behaviour)
                 PcrSlot::Slot7,
+                // PCR8 = Grub text commands (critical to security)
                 PcrSlot::Slot8,
+                // PCR9 = Grub binary images (critical to security)
                 PcrSlot::Slot9,
             ],
         )
@@ -127,7 +139,7 @@ fn relevant_pcrs() -> anyhow::Result<PcrSelectionList> {
         .context("Creating PcrSelectionList")
 }
 
-fn combine_pcr_digests(digest_list: &DigestList) -> anyhow::Result<Digest> {
+pub fn combine_pcr_digests(digest_list: &DigestList) -> anyhow::Result<Digest> {
     let mut hasher = Sha256::new();
     for digest in digest_list.value() {
         hasher.update(digest.as_bytes());
@@ -165,9 +177,8 @@ fn calculate_auth_policy(
 pub fn load_or_create_signkey(
     context: &mut Context,
     ak: &TpmResidentKey,
+    keypath: &Path
 ) -> anyhow::Result<AttestedKey> {
-    let keypath = std::env::var("SIGNKEY_STORAGE_PATH")
-        .context("Reading SIGNKEY_STORAGE_PATH environment")?;
     if let Ok(key) = try_load_attested_key(context, &keypath) {
         return Ok(key);
     }
@@ -210,13 +221,7 @@ pub fn load_or_create_signkey(
             None,
             None,
             None,
-            Some(
-                /* Attesting creation PCRs is not strictly required, but it provides
-                defence in depth against flaws if the attestation signature
-                and creation PCRs are validated, but some other check of the
-                attestation is missed. */
-                relevant_pcrs()?,
-            ),
+            None,
         )
         .context("CreatePrimary to create signing key")?;
 
@@ -276,7 +281,7 @@ mod test {
 
     #[test]
     fn attestation_serialization_should_roundtrip() {
-        const RAW_ATTEST_SAMPLE: &'static str = r#"{"attest":"/1RDR4AaACIACwPAVbRAbbriGv9NI57oFj9ynakfM01/tHdSkNun0FAWAAAAAAAAGRkrDgAAAAcAAAAAASAZECMAFjY2ACIAC+IfhIAqOh2FyifrnyS8SHqTThJkjf6IHV7F+rMN8eYzACCbJZqMWqgTwI5GMcMS/VU18uqSfUTCsRMWSI3QOcUkkA","sig":"ABQACwEAS0bxr30d1uEvpdFoAd0SDdu+/g3dKJIPoYpxPd4aPkVn2pKvqg8cgEQzmnPRsqVJVYVP1g3bM2CzGNryYffgbQbI/s5ngjxhc40yBg3cKibD6mx7i5oCMmIxD+iS78Mvmz1HrRWtr74I2xrB6E86aUn6B2D9SWrt6B6urQs1BK8oTImmSrt0f21BOdF+fxL1yCQEmsZOep6lIJmexxtY7Q47Dg7xWcv8M49c3Fc7370kMN2fQhf1YhFKhhzGrhkvwiQeeK0aH1uonWxvunO1t+ys1U2xq8CIcx8qdVu6RRF36s2UcXtqfjQ/DJe/c7rJ4uC5CloODbiqiqywMUFdnw"}"#;
+        const RAW_ATTEST_SAMPLE: &'static str = r#"{"attest":"/1RDR4AaACIACwPAVbRAbbriGv9NI57oFj9ynakfM01/tHdSkNun0FAWAAAAAAAAGR7K0AAAAAgAAAAAASAZECMAFjY2ACIAC9AfAmGauLrHXLFXEljPeHNXs1fmv+BpP1kaByerhxD1ACCbJZqMWqgTwI5GMcMS/VU18uqSfUTCsRMWSI3QOcUkkA","sig":"ABQACwEAROpV4O6D2hNf1SVPTCkL9JYPG3VoALENdbgHF4hvirS+evEQ9QUhaDYyN0KjwjVngca6mKlSgxJaRGHtKLn7/l6rp6mfS5ym+NbLPMLXRSUQdAbCuF2Up+i6Dn8VAcs0rVMaK14mz12HX5TN96pfeiMu39QXI4oFm3Z/Mr+Mp+8vC/szobhQvzkwb2MOxaGh1F/5ZS0/cIIkbk1F7u4ipqATT3iuRqHQe+61AxrIuCyWOXZjevRJA3RhsHMxPWat8KIrFGdjM01MXOwCzhv/ZF9d25NDfb4F4hiDJB3qiUHt7ycAcKSb4krsivKqKTy5UzaeWEu7kKKr+7NPktJBEg","public":"ACMACwAEADIAIEpv/5dbTLR6mBpO2trU8X75fgHzt7K2ggUc9IMNL0+aABAAGAALAAMAEAAgocPOQUdGKvhvy+UGnYEh9Rrjwr7wgIXw6pbc6cF/PAMAIPFSqc2KOpv9SLGZzfnL2x0VSVQXmIDxTeIH3OH+EOfK"}"#;
         assert_eq!(
             serde_json::to_string(&serde_json::from_str::<Attestation>(RAW_ATTEST_SAMPLE).unwrap())
                 .unwrap(),

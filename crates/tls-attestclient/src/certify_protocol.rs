@@ -1,7 +1,7 @@
 use std::io::Write;
 
 use bincode::config::Configuration;
-use k256::PublicKey;
+use p256::PublicKey;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 

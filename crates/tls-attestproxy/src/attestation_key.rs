@@ -1,4 +1,5 @@
 use std::fs::read_to_string;
+use std::path::Path;
 
 use anyhow::Context as EContext;
 use serde::{Deserialize, Serialize};
@@ -29,22 +30,20 @@ pub struct TpmResidentKey {
     pub handle: KeyHandle,
 }
 
-fn try_load_key(context: &mut Context, path: &str) -> anyhow::Result<TpmResidentKey> {
+fn try_load_key(context: &mut Context, path: &Path) -> anyhow::Result<TpmResidentKey> {
     let data = read_to_string(path)?;
     let storable_key: StorableKey = serde_json::from_str(&data)?;
     let handle: KeyHandle = context.tr_deserialize(&storable_key.serdata)?.try_into()?;
     Ok(TpmResidentKey { handle })
 }
 
-fn save_key(key: &StorableKey, path: &str) -> anyhow::Result<()> {
+fn save_key(key: &StorableKey, path: &Path) -> anyhow::Result<()> {
     std::fs::write(path, &serde_json::to_string(key)?)?;
     Ok(())
 }
 
-pub fn load_or_create_ak(context: &mut Context) -> anyhow::Result<TpmResidentKey> {
-    let keypath =
-        std::env::var("AK_STORAGE_PATH").context("Fetching AK_STORAGE_PATH environment")?;
-    if let Ok(key) = try_load_key(context, &keypath) {
+pub fn load_or_create_ak(context: &mut Context, keypath: &Path) -> anyhow::Result<TpmResidentKey> {
+    if let Ok(key) = try_load_key(context, keypath) {
         return Ok(key);
     }
 
@@ -107,7 +106,7 @@ pub fn load_or_create_ak(context: &mut Context) -> anyhow::Result<TpmResidentKey
     let storable_primary: StorableKey = StorableKey {
         serdata: primary_ser.into(),
     };
-    save_key(&storable_primary, &keypath)?;
+    save_key(&storable_primary, keypath)?;
 
     Ok(TpmResidentKey {
         handle: primary_perm.try_into()?,
