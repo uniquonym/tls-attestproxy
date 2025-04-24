@@ -177,7 +177,7 @@ fn calculate_auth_policy(
 pub fn load_or_create_signkey(
     context: &mut Context,
     ak: &TpmResidentKey,
-    keypath: &Path
+    keypath: &Path,
 ) -> anyhow::Result<AttestedKey> {
     if let Ok(key) = try_load_attested_key(context, &keypath) {
         return Ok(key);

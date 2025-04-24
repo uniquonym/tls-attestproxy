@@ -1,4 +1,9 @@
-use tss_esapi::{constants::SessionType, interface_types::{algorithm::HashingAlgorithm, session_handles::AuthSession}, structures::SymmetricDefinition, Context};
+use tss_esapi::{
+    constants::SessionType,
+    interface_types::{algorithm::HashingAlgorithm, session_handles::AuthSession},
+    structures::SymmetricDefinition,
+    Context,
+};
 
 pub mod attestation_key;
 pub mod certify_protocol_server;

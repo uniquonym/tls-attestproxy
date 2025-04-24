@@ -43,7 +43,7 @@ pub enum ServerToClientMessage {
     },
     // If this happens, no transcript can be produced & the connection should
     // be closed.
-    EncounteredError(String)
+    EncounteredError(String),
 }
 
 #[serde_as]

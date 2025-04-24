@@ -202,8 +202,16 @@ impl AttestationRaw {
         );
 
         p256::PublicKey::from_encoded_point(&p256::EncodedPoint::from_affine_coordinates(
-            public.ec_x.as_slice().try_into().context("Checking size of public key EC X")?,
-            public.ec_y.as_slice().try_into().context("Checking size of public key EC Y")?,
+            public
+                .ec_x
+                .as_slice()
+                .try_into()
+                .context("Checking size of public key EC X")?,
+            public
+                .ec_y
+                .as_slice()
+                .try_into()
+                .context("Checking size of public key EC Y")?,
             false,
         ))
         .into_option()
