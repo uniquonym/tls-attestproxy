@@ -112,12 +112,12 @@ struct TpmsEcPublicData {
 const TPMT_SIG_HEADER_LEN: usize = 6;
 const TPMT_SIG_RSA_LEN: usize = 256;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct PCRHash(pub [u8; 32]);
 #[derive(Eq, Ord, Hash, PartialEq, PartialOrd)]
 pub struct PolicyHash(pub [u8; 32]);
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[serde_as]
 pub struct TrustedPCRSet {
     #[serde_as(as = "Hex<Lowercase>")]

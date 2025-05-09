@@ -10,6 +10,7 @@ use sha2::Sha256;
 use tls_attestclient::signing_key_attestation::AttestationRaw;
 use tss_esapi::constants::SessionType;
 use tss_esapi::handles::KeyHandle;
+use tss_esapi::interface_types::session_handles::AuthSession;
 use tss_esapi::interface_types::session_handles::PolicySession;
 use tss_esapi::structures::{Attest, Digest, DigestList, Signature, SymmetricDefinition};
 use tss_esapi::traits::{Marshall, UnMarshall};
@@ -147,31 +148,32 @@ pub fn combine_pcr_digests(digest_list: &DigestList) -> anyhow::Result<Digest> {
     Digest::from_bytes(&hasher.finalize()).context("Wrapping digest")
 }
 
-fn calculate_auth_policy(
+fn apply_auth_policy(
     context: &mut Context,
     pcr_list: &PcrSelectionList,
     digest_list: &DigestList,
-) -> anyhow::Result<Digest> {
+) -> anyhow::Result<(Digest, AuthSession)> {
     let sess = context
         .start_auth_session(
             None,
             None,
             None,
-            SessionType::Trial,
+            SessionType::Policy,
             SymmetricDefinition::Null,
             HashingAlgorithm::Sha256,
         )
-        .context("Starting auth policy trial session")?
-        .ok_or_else(|| anyhow::anyhow!("No trial session returned"))?;
+        .context("Starting auth policy session")?
+        .ok_or_else(|| anyhow::anyhow!("No policy session returned"))?;
     let policy_sess: PolicySession = sess.try_into().context("Extracting policy session")?;
 
     let digest = combine_pcr_digests(&digest_list)?;
     context
         .policy_pcr(policy_sess, digest, pcr_list.clone())
-        .context("Adding policy_pcr to trial policy")?;
-    context
+        .context("Adding policy_pcr to policy")?;
+    let digest = context
         .policy_get_digest(policy_sess)
-        .context("Get digest from policy session")
+        .context("Get digest from policy session")?;
+    Ok((digest, sess))
 }
 
 pub fn load_or_create_signkey(
@@ -182,10 +184,10 @@ pub fn load_or_create_signkey(
     if let Ok(key) = try_load_attested_key(context, &keypath) {
         return Ok(key);
     }
-    let key_policy = context.execute_without_session(|context| {
+    let (key_policy, key_sess) = context.execute_without_session(|context| {
         let (_, pcr_list, digest_list) =
             context.pcr_read(relevant_pcrs()?).context("Reading PCRs")?;
-        calculate_auth_policy(context, &pcr_list, &digest_list)
+        apply_auth_policy(context, &pcr_list, &digest_list)
     })?;
 
     let signkey_public_template: Public = PublicBuilder::new()
@@ -266,6 +268,9 @@ pub fn load_or_create_signkey(
         attestation: attestation.clone(),
     };
     save_attested_key(&storable, &keypath)?;
+
+    context.set_sessions((Some(key_sess), None, None));
+
     Ok(AttestedKey {
         handle: primary_perm.try_into()?,
         attestation,

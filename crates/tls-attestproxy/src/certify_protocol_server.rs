@@ -239,7 +239,9 @@ async fn certify_core_loop(
                     bincfg,
                     &TranscriptMessage::ClientToServer(&msg),
                 )?;
-                tls_state.writer().write_all(&msg)?;
+                let mut w = tls_state.writer();
+                w.write_all(&msg)?;
+                w.flush()?;
                 handle_send_tlsconn_to_ws(
                     session,
                     tls_state,

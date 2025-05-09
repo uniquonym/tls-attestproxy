@@ -1,53 +1,14 @@
-use std::fs::read;
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::sync::Mutex;
 
 use actix_web::web::Data;
-use actix_web::{get, rt, web, App, Error, HttpRequest, HttpResponse, HttpServer, Responder};
+use actix_web::{App, HttpServer};
 use anyhow::Context as EContext;
-use log::info;
 use tls_attestproxy::attestation_key::load_or_create_ak;
-use tls_attestproxy::certify_protocol_server::do_certify_protocol_server;
-use tls_attestproxy::signing_key::{load_or_create_signkey, AttestedKey};
-use tls_attestproxy::start_tpm_session;
+use tls_attestproxy::signing_key::load_or_create_signkey;
+use tls_attestproxy::{binarylogsvc, start_tpm_session, tlscertify, ReqData};
 use tss_esapi::Context;
 use tss_esapi::Tcti;
-
-#[get("/v1/binpcrlog")]
-async fn binarylogsvc() -> impl Responder {
-    read("/sys/kernel/security/tpm0/binary_bios_measurements")
-}
-
-#[get("/v1/tlscertify")]
-async fn tlscertify(
-    data: Data<ReqData>,
-    req: HttpRequest,
-    stream: web::Payload,
-) -> Result<HttpResponse, Error> {
-    let (res, mut session, stream) = actix_ws::handle(&req, stream)?;
-
-    let mut stream = stream
-        .aggregate_continuations()
-        .max_continuation_size(1000000_usize);
-    rt::spawn(async move {
-        if let Err(err) =
-            do_certify_protocol_server(&data.context, &data.sign_key, &mut session, &mut stream)
-                .await
-        {
-            info!(
-                "Failed to complete certification protocol for stream: {}",
-                err
-            );
-        }
-    });
-    Ok(res)
-}
-
-pub struct ReqData {
-    context: Mutex<Context>,
-    sign_key: AttestedKey,
-}
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
