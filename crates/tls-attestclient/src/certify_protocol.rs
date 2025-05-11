@@ -19,7 +19,7 @@ pub struct TargetServernameV1 {
     pub servername: String,
 }
 
-#[derive(Serialize, Deserialize, Eq, Ord, Clone, PartialEq, PartialOrd)]
+#[derive(Serialize, Deserialize, Eq, Ord, Clone, PartialEq, PartialOrd, Debug)]
 pub enum ClientToServerMessage {
     ReceivedFromClient(Vec<u8>),
     ReceivedFromServer(Vec<u8>),
@@ -27,7 +27,7 @@ pub enum ClientToServerMessage {
 }
 
 #[serde_as]
-#[derive(Serialize, Deserialize, Eq, Ord, Clone, PartialEq, PartialOrd)]
+#[derive(Serialize, Deserialize, Eq, Ord, Clone, PartialEq, PartialOrd, Debug)]
 pub enum ServerToClientMessage {
     SendToServer(Vec<u8>),
     SendToClient(Vec<u8>),

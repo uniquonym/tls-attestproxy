@@ -78,12 +78,12 @@ async fn handle_send_tlsconn_to_ws(
     while tls_state.wants_write() {
         let mut writebuf: Vec<u8> = Vec::new();
         tls_state.write_tls(&mut writebuf)?;
-        session
-            .binary(bincode::serde::encode_to_vec(
-                ServerToClientMessage::SendToClient(writebuf),
-                bincfg,
-            )?)
-            .await?;
+        send_message_to_client(
+            session,
+            secure_connection,
+            &ServerToClientMessage::SendToServer(writebuf),
+            bincfg,
+        ).await?;
     }
     let mut readbuf: [u8; 4096] = [0; 4096];
     loop {
@@ -104,6 +104,7 @@ async fn handle_send_tlsconn_to_ws(
                     )
                     .await?;
                 }
+                return Ok(())
             }
             Ok(n) => {
                 add_message_to_transcript(
@@ -119,7 +120,9 @@ async fn handle_send_tlsconn_to_ws(
                 )
                 .await?;
             }
-            Err(k) if k.kind() == ErrorKind::WouldBlock.into() => return Ok(()),
+            Err(k) if k.kind() == ErrorKind::WouldBlock.into() => {
+                return Ok(())
+            },
             Err(e) => return Err(e.into()),
         }
     }

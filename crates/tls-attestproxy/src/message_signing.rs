@@ -1,6 +1,6 @@
 use std::io::Cursor;
 
-use crate::signing_key::AttestedKey;
+use crate::signing_key::{apply_auth_policy, AttestedKey};
 use anyhow::{bail, Context as ErrContext};
 use binrw::{binread, BinRead};
 use elliptic_curve::generic_array::GenericArray;
@@ -37,6 +37,8 @@ pub fn sign_message(
     bincode::serde::encode_into_std_write(input, &mut hasher, bincode::config::standard())?;
     let digest = TpmDigest::from_bytes(&hasher.finalize())?;
 
+    // Other actions on the TPM2 can invalidate the policy, so refresh...
+    apply_auth_policy(context)?;
     let sig: Signature = context
         .sign(
             sign_key.handle,

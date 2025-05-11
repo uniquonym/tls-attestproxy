@@ -10,6 +10,7 @@ use sha2::Sha256;
 use tls_attestclient::signing_key_attestation::AttestationRaw;
 use tss_esapi::constants::SessionType;
 use tss_esapi::handles::KeyHandle;
+use tss_esapi::handles::SessionHandle;
 use tss_esapi::interface_types::session_handles::AuthSession;
 use tss_esapi::interface_types::session_handles::PolicySession;
 use tss_esapi::structures::{Attest, Digest, DigestList, Signature, SymmetricDefinition};
@@ -148,7 +149,7 @@ pub fn combine_pcr_digests(digest_list: &DigestList) -> anyhow::Result<Digest> {
     Digest::from_bytes(&hasher.finalize()).context("Wrapping digest")
 }
 
-fn apply_auth_policy(
+fn create_auth_policy(
     context: &mut Context,
     pcr_list: &PcrSelectionList,
     digest_list: &DigestList,
@@ -176,6 +177,20 @@ fn apply_auth_policy(
     Ok((digest, sess))
 }
 
+pub fn apply_auth_policy(context: &mut Context) -> anyhow::Result<()> {
+    // Cleanup current session first, since we always restart cleanly...
+    if let Some(sess) = context.sessions().0 {
+        context.flush_context(SessionHandle::from(sess).into())?;
+    }
+
+    context.set_sessions((None, None, None));
+    let (_, pcr_list, digest_list) =
+    context.pcr_read(relevant_pcrs()?).context("Reading PCRs")?;
+    let (_, auth_sess) = create_auth_policy(context, &pcr_list, &digest_list)?;
+    context.set_sessions((Some(auth_sess), None, None));
+    Ok(())
+}
+
 pub fn load_or_create_signkey(
     context: &mut Context,
     ak: &TpmResidentKey,
@@ -184,11 +199,12 @@ pub fn load_or_create_signkey(
     if let Ok(key) = try_load_attested_key(context, &keypath) {
         return Ok(key);
     }
-    let (key_policy, key_sess) = context.execute_without_session(|context| {
+    let (key_policy, tmp_sess) = context.execute_without_session(|context| {
         let (_, pcr_list, digest_list) =
             context.pcr_read(relevant_pcrs()?).context("Reading PCRs")?;
-        apply_auth_policy(context, &pcr_list, &digest_list)
+        create_auth_policy(context, &pcr_list, &digest_list)
     })?;
+    context.flush_context(SessionHandle::from(tmp_sess).into())?;
 
     let signkey_public_template: Public = PublicBuilder::new()
         .with_name_hashing_algorithm(HashingAlgorithm::Sha256)
@@ -268,8 +284,6 @@ pub fn load_or_create_signkey(
         attestation: attestation.clone(),
     };
     save_attested_key(&storable, &keypath)?;
-
-    context.set_sessions((Some(key_sess), None, None));
 
     Ok(AttestedKey {
         handle: primary_perm.try_into()?,

@@ -33,7 +33,6 @@ impl MessageVerification {
         msg: &'msgl SignedMessage,
     ) -> anyhow::Result<&'msgl SignableMessage> {
         let msg_bytes = bincode::serde::encode_to_vec(&msg.message, bincode::config::standard())?;
-        println!("Signature size: {}, expected 32", msg.signature.len());
         let signature =
             Signature::from_slice(&msg.signature).map_err(|_| anyhow!("Invalid signature"))?;
         self.verifying_key

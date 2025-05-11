@@ -1,16 +1,25 @@
 use std::{
-    collections::HashSet, fs::{create_dir, Permissions}, mem::swap, os::unix::fs::PermissionsExt, path::PathBuf, process::{Child, Command}, sync::Mutex, thread::sleep, time::Duration
+    collections::HashSet,
+    fs::{create_dir, Permissions},
+    mem::swap,
+    os::unix::fs::PermissionsExt,
+    path::PathBuf,
+    process::{Child, Command},
+    sync::Mutex,
+    thread::sleep,
+    time::Duration,
 };
 
 use actix_web::{web::Data, App};
 use rsa::{BigUint, RsaPublicKey};
 use tempfile::{Builder, TempDir};
 use tls_attestclient::{
-    certify_protocol_client::{self, ProxyInfo},
+    certify_protocol_client::{self, CertifyOutcome, ProxyInfo},
     signing_key_attestation::{
         calculate_pcr_policy_hash, AttestationRaw, PCRHash, PolicyHash, TrustedPCRSet,
     },
 };
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tss_esapi::{
     constants::SessionType,
     interface_types::{algorithm::HashingAlgorithm, session_handles::PolicySession},
@@ -212,7 +221,7 @@ async fn certify_protocol_happy_path_works() {
     let srv = actix_test::start(move || App::new().app_data(reqdata.clone()).service(tlscertify));
     let serv_addr = srv.addr();
 
-    certify_protocol_client::certify_tls(
+    let mut session = certify_protocol_client::certify_tls(
         "home.amxl.com:443",
         "home.amxl.com",
         &ProxyInfo {
@@ -225,4 +234,31 @@ async fn certify_protocol_happy_path_works() {
     )
     .await
     .unwrap();
+
+    session
+        .write_all(
+            "\
+      GET / HTTP/1.1\r\n\
+      Host: home.amxl.com\r\n\
+      Connection: close\r\n\
+      \r\n"
+                .as_bytes(),
+        )
+        .await
+        .unwrap();
+    session.flush().await.unwrap();
+    // Reading is essential before closing for TLS stack to actually send closing.
+    loop {
+      let mut readbuf: [u8; 1024] = [0; 1024];
+      let n = session.read(&mut readbuf).await.unwrap();
+      if n == 0 {
+        break;
+      }
+    }
+
+    let result = session.finalise().await;
+    match result {
+        CertifyOutcome::Success { .. } => {}
+        e => panic!("Attestation failed with outcome {:#?}", e),
+    }
 }

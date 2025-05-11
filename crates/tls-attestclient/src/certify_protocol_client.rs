@@ -117,24 +117,31 @@ async fn core_loop(
                         let (msg, _): (ServerToClientMessage, usize) = bincode::serde::decode_from_slice(&secure_connection.decrypt_server_to_client(&msg)?, bincfg)?;
                         match msg {
                             ServerToClientMessage::SendToServer(data) => {
-                                if let Err(e) = tls.write_all(&data).await {
-                                    return Ok(CertifyOutcome::TlsSocketIoError(e.into()));
-                                }
-                                if let Err(e) = tls.flush().await {
-                                    return Ok(CertifyOutcome::TlsSocketIoError(e.into()));
+                                if tls_open {
+                                    if let Err(e) = tls.write_all(&data).await {
+                                        return Ok(CertifyOutcome::TlsSocketIoError(e.into()));
+                                    }
+                                    if let Err(e) = tls.flush().await {
+                                        return Ok(CertifyOutcome::TlsSocketIoError(e.into()));
+                                    }
                                 }
                             },
                             ServerToClientMessage::SendToClient(data) => {
-                                if let Err(e) = local.write_all(&data).await {
-                                    return Ok(CertifyOutcome::LocalIoError(e.into()));
-                                }
-                                if let Err(e) = local.flush().await {
-                                    return Ok(CertifyOutcome::LocalIoError(e.into()));
+                                if local_open {
+                                    if let Err(e) = local.write_all(&data).await {
+                                        return Ok(CertifyOutcome::LocalIoError(e.into()));
+                                    }
+                                    if let Err(e) = local.flush().await {
+                                        return Ok(CertifyOutcome::LocalIoError(e.into()));
+                                    }
                                 }
                             },
                             ServerToClientMessage::DisconnectFromServer => {
-                                let _ = tls.shutdown().await;
-                                tls_open = false;
+                                if tls_open {
+                                  let _ = tls.shutdown().await;
+                                  tls_open = false;
+                                }
+                                let _ = local.shutdown().await;
                             },
                             ServerToClientMessage::TranscriptAvailable(signed_message) => {
                                 return Ok(CertifyOutcome::Success { attestation: signed_message })
@@ -152,6 +159,7 @@ async fn core_loop(
     }
 }
 
+#[derive(Debug)]
 pub enum CertifyOutcome {
     LocalIoError(anyhow::Error),
     WebsocketIoError(anyhow::Error),
@@ -297,13 +305,11 @@ pub async fn certify_tls<A: ToSocketAddrs>(
         {
             Ok(outcome) => {
                 let _ = local.shutdown().await;
-                let _ = ws_conn.close().await;
                 let _ = tls_stream.shutdown().await;
                 let _ = tx_result.send(outcome).await;
             }
             Err(e) => {
                 let _ = local.shutdown().await;
-                let _ = ws_conn.close().await;
                 let _ = tls_stream.shutdown().await;
                 let _ = tx_result.send(CertifyOutcome::OtherError(e)).await;
             }
