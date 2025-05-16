@@ -83,7 +83,8 @@ async fn handle_send_tlsconn_to_ws(
             secure_connection,
             &ServerToClientMessage::SendToServer(writebuf),
             bincfg,
-        ).await?;
+        )
+        .await?;
     }
     let mut readbuf: [u8; 4096] = [0; 4096];
     loop {
@@ -104,13 +105,13 @@ async fn handle_send_tlsconn_to_ws(
                     )
                     .await?;
                 }
-                return Ok(())
+                return Ok(());
             }
             Ok(n) => {
                 add_message_to_transcript(
                     transcript,
                     bincfg,
-                    &TranscriptMessage::ServerToClient(&readbuf[0..n]),
+                    &TranscriptMessage::ServerToClient(readbuf[0..n].to_vec()),
                 )?;
                 send_message_to_client(
                     session,
@@ -120,9 +121,7 @@ async fn handle_send_tlsconn_to_ws(
                 )
                 .await?;
             }
-            Err(k) if k.kind() == ErrorKind::WouldBlock.into() => {
-                return Ok(())
-            },
+            Err(k) if k.kind() == ErrorKind::WouldBlock.into() => return Ok(()),
             Err(e) => return Err(e.into()),
         }
     }
@@ -240,7 +239,7 @@ async fn certify_core_loop(
                 add_message_to_transcript(
                     transcript,
                     bincfg,
-                    &TranscriptMessage::ClientToServer(&msg),
+                    &TranscriptMessage::ClientToServer(msg.clone()),
                 )?;
                 let mut w = tls_state.writer();
                 w.write_all(&msg)?;
@@ -343,8 +342,8 @@ async fn check_cert_verified(
                 transcript,
                 bincfg,
                 &TranscriptMessage::ValidServerX509 {
-                    server_name: &servername.servername,
-                    rfc9162_log_id: &first_sct.log_id.key_id,
+                    server_name: servername.servername.clone(),
+                    rfc9162_log_id: first_sct.log_id.key_id.clone(),
                     rfc9162_timestamp: first_sct.timestamp,
                 },
             )?;
@@ -352,7 +351,7 @@ async fn check_cert_verified(
                 session,
                 secure_connection,
                 &ServerToClientMessage::ValidServerX509 {
-                    rfc9162_log_id: first_sct.log_id.key_id.to_vec(),
+                    rfc9162_log_id: first_sct.log_id.key_id.clone(),
                     rfc9162_timestamp: first_sct.timestamp,
                 },
                 bincfg,

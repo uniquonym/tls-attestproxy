@@ -6,6 +6,7 @@ use http::{
     Uri,
     uri::{Parts, PathAndQuery},
 };
+use serde::{Deserialize, Serialize};
 use tokio::{
     io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, DuplexStream},
     net::{TcpStream, ToSocketAddrs},
@@ -17,6 +18,7 @@ use zerocopy::IntoBytes;
 use crate::{
     certify_protocol::{
         ClientIntroMessage, ClientToServerMessage, ServerToClientMessage, TargetServernameV1,
+        TranscriptMessage,
     },
     message_verification::MessageVerification,
     secure_connection_client::SecureConnectionClient,
@@ -30,8 +32,6 @@ pub struct ProxyInfo {
     pub attestation_pubkey: rsa::RsaPublicKey,
     pub allowed_proxy_pcrs: HashSet<TrustedPCRSet>,
 }
-
-pub struct Certification {}
 
 type WSStream = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
@@ -52,11 +52,13 @@ async fn next_ws_binary(stream: &mut WSStream) -> anyhow::Result<Option<Vec<u8>>
 }
 
 async fn core_loop(
+    server_name: &str,
     ws: &mut WSStream,
     tls: &mut TcpStream,
     local: &mut DuplexStream,
     secure_connection: &mut SecureConnectionClient,
 ) -> anyhow::Result<CertifyOutcome> {
+    let mut transcript: Vec<TranscriptMessage> = vec![];
     let mut local_buf: [u8; 2048] = [0; 2048];
     let mut tls_buf: [u8; 2048] = [0; 2048];
     let mut local_open = true;
@@ -71,6 +73,7 @@ async fn core_loop(
                     Ok(0) => {
                         local_open = false;
                         let msg = bincode::serde::encode_to_vec(&ClientToServerMessage::DisconnectFromClient, bincfg)?;
+                        transcript.push(TranscriptMessage::ClosedByClient);
                         if let Err(e) = ws.send(Message::binary(
                             secure_connection.encrypt_client_to_server(&msg)?,
                         ))
@@ -80,6 +83,7 @@ async fn core_loop(
                     },
                     Ok(n) => {
                         let msg = bincode::serde::encode_to_vec(&ClientToServerMessage::ReceivedFromClient(local_buf[0..n].to_vec()), bincfg)?;
+                        transcript.push(TranscriptMessage::ClientToServer(local_buf[0..n].to_vec()));
                         if let Err(e) = ws.send(Message::binary(
                             secure_connection.encrypt_client_to_server(&msg)?,
                         ))
@@ -127,6 +131,7 @@ async fn core_loop(
                                 }
                             },
                             ServerToClientMessage::SendToClient(data) => {
+                                transcript.push(TranscriptMessage::ServerToClient(data.clone()));
                                 if local_open {
                                     if let Err(e) = local.write_all(&data).await {
                                         return Ok(CertifyOutcome::LocalIoError(e.into()));
@@ -137,6 +142,7 @@ async fn core_loop(
                                 }
                             },
                             ServerToClientMessage::DisconnectFromServer => {
+                                transcript.push(TranscriptMessage::ClosedByServer);
                                 if tls_open {
                                   let _ = tls.shutdown().await;
                                   tls_open = false;
@@ -144,9 +150,10 @@ async fn core_loop(
                                 let _ = local.shutdown().await;
                             },
                             ServerToClientMessage::TranscriptAvailable(signed_message) => {
-                                return Ok(CertifyOutcome::Success { attestation: signed_message })
+                                return Ok(CertifyOutcome::Success { signed_transcript: SignedTranscript { attestation: signed_message, transcript } })
                             },
-                            ServerToClientMessage::ValidServerX509 { .. } => {
+                            ServerToClientMessage::ValidServerX509 { rfc9162_log_id, rfc9162_timestamp } => {
+                                transcript.push(TranscriptMessage::ValidServerX509 { server_name: server_name.to_owned(), rfc9162_log_id: rfc9162_log_id.clone(), rfc9162_timestamp: rfc9162_timestamp.to_owned() });
                                 // To do: Transcript update
                             },
                             ServerToClientMessage::EncounteredError(msg) => return Ok(CertifyOutcome::ProtocolErrorReceived(msg)),
@@ -159,6 +166,12 @@ async fn core_loop(
     }
 }
 
+#[derive(Serialize, Deserialize, Eq, PartialEq, Debug)]
+pub struct SignedTranscript {
+    attestation: SignedMessage,
+    transcript: Vec<TranscriptMessage>
+}
+
 #[derive(Debug)]
 pub enum CertifyOutcome {
     LocalIoError(anyhow::Error),
@@ -166,7 +179,7 @@ pub enum CertifyOutcome {
     TlsSocketIoError(anyhow::Error),
     ProtocolErrorReceived(String),
     OtherError(anyhow::Error),
-    Success { attestation: SignedMessage },
+    Success { signed_transcript: SignedTranscript },
 }
 
 /// An open connection to a TLS server that can be written or read to.
@@ -294,8 +307,10 @@ pub async fn certify_tls<A: ToSocketAddrs>(
     let (mut local, remote) = tokio::io::duplex(1024);
     let (tx_result, rx_result) = tokio::sync::mpsc::channel::<CertifyOutcome>(1);
 
+    let servername = servername.to_owned();
     spawn(async move {
         match core_loop(
+            &servername,
             &mut ws_conn,
             &mut tls_stream,
             &mut local,
