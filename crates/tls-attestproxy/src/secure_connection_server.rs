@@ -10,7 +10,7 @@ use tls_attestclient::secure_connection::{
 use tss_esapi::Context;
 
 use crate::{message_signing::sign_message, signing_key::AttestedKey};
-use tls_attestclient::signed_message::{SignableMessage, SignedMessage};
+use tls_attestverify::signed_message::{SignableMessage, SignedMessage};
 
 pub struct ServerSecureConnection(SecureConnectionState);
 impl ServerSecureConnection {

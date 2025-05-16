@@ -4,10 +4,8 @@ use anyhow::anyhow;
 use p256::ecdsa::{Signature, VerifyingKey, signature::Verifier};
 use rsa::RsaPublicKey;
 
-use crate::{
-    signed_message::{SignableMessage, SignedMessage},
-    signing_key_attestation::{AttestationRaw, PolicyHash},
-};
+use crate::signed_message::{SignableMessage, SignedMessage};
+use crate::signing_key_attestation::{AttestationRaw, PolicyHash};
 
 pub struct MessageVerification {
     verifying_key: VerifyingKey,

@@ -29,6 +29,7 @@ der = "0.7.9"
 x509-cert = { version = "0.2.5", features = ["sct"] }
 workspace-hack = { version = "0.1", path = "../workspace-hack" }
 tls-attestclient = { version = "0.1", path = "../tls-attestclient" }
+tls-attestverify = { version = "0.1", path = "../tls-attestverify" }
 p256 = { version = "0.13.2", features = ["serde", "ecdh"] }
 binrw = "0.15.0"
 tokio = "1.45.0"

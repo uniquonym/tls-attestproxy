@@ -2438,9 +2438,9 @@ dependencies = [
 
 [[package]]
 name = "sha2"
-version = "0.10.8"
+version = "0.10.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "793db75ad2bcafc3ffa7c68b215fee268f537982cd901d132f89c6343f3a3dc8"
+checksum = "a7507d819769d01a365ab707794a4084392c824f54a7a6a7862f8c3d0892b283"
 dependencies = [
  "cfg-if",
  "cpufeatures",
@@ -2666,6 +2666,7 @@ dependencies = [
  "serde_json",
  "serde_with",
  "sha2",
+ "tls-attestverify",
  "tokio",
  "tokio-websockets",
  "workspace-hack",
@@ -2705,10 +2706,25 @@ dependencies = [
  "sha2",
  "tempfile",
  "tls-attestclient",
+ "tls-attestverify",
  "tokio",
  "tss-esapi",
  "workspace-hack",
  "x509-cert",
+]
+
+[[package]]
+name = "tls-attestverify"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "binrw 0.15.0",
+ "p256",
+ "rsa",
+ "serde",
+ "serde_with",
+ "sha2",
 ]
 
 [[package]]
@@ -3278,6 +3294,7 @@ version = "0.1.0"
 dependencies = [
  "actix-router",
  "actix-rt",
+ "base64",
  "bitflags",
  "byteorder",
  "bytes",
@@ -3289,16 +3306,18 @@ dependencies = [
  "elliptic-curve",
  "futures-core",
  "getrandom 0.3.2",
- "hmac",
+ "libc",
  "log",
  "memchr",
  "mio",
  "num-traits",
  "once_cell",
+ "p256",
  "ppv-lite86",
  "proc-macro2",
  "rustls",
  "serde",
+ "sha2",
  "smallvec",
  "syn 2.0.100",
  "tokio",

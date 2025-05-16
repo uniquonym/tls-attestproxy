@@ -1,0 +1,14 @@
+[package]
+name = "tls-attestverify"
+edition = "2024"
+version.workspace = true
+
+[dependencies]
+anyhow = "1.0.98"
+bincode = { version = "2.0.1", features = ["serde"] }
+binrw = "0.15.0"
+p256 = { version = "0.13.2", features = ["serde"] }
+rsa = "0.9.8"
+serde = { version = "1.0.219", features = ["derive"] }
+serde_with = { version = "3.12.0", features = ["base64", "hex"] }
+sha2 = { version = "0.10.9", features = ["oid"] }

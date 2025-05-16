@@ -6,7 +6,7 @@ use binrw::{binread, BinRead};
 use elliptic_curve::generic_array::GenericArray;
 use p256::{ecdsa::Signature as ECSignature, U32};
 use sha2::{Digest, Sha256};
-use tls_attestclient::signed_message::{SignableMessage, SignedMessage};
+use tls_attestverify::signed_message::{SignableMessage, SignedMessage};
 use tss_esapi::{
     interface_types::algorithm::HashingAlgorithm,
     structures::{Digest as TpmDigest, HashScheme, Signature, SignatureScheme},

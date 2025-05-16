@@ -7,7 +7,7 @@ use serde::{de, ser, Deserialize, Serialize};
 use serde_with::serde_as;
 use sha2::Digest as SHA2Digest;
 use sha2::Sha256;
-use tls_attestclient::signing_key_attestation::AttestationRaw;
+use tls_attestverify::signing_key_attestation::AttestationRaw;
 use tss_esapi::constants::SessionType;
 use tss_esapi::handles::KeyHandle;
 use tss_esapi::handles::SessionHandle;

@@ -1,13 +1,10 @@
-use std::io::Write;
-
-use bincode::config::Configuration;
 use p256::PublicKey;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 
-use crate::signed_message::SignedMessage;
 use serde_with::base64::{Base64, Standard};
 use serde_with::formats::Unpadded;
+use tls_attestverify::signed_message::SignedMessage;
 
 #[derive(Serialize, Deserialize, Eq, Ord, Clone, PartialEq, PartialOrd)]
 pub enum ClientIntroMessage {
@@ -44,31 +41,4 @@ pub enum ServerToClientMessage {
     // If this happens, no transcript can be produced & the connection should
     // be closed.
     EncounteredError(String),
-}
-
-#[serde_as]
-#[derive(Serialize, Deserialize, Eq, Ord, Clone, PartialEq, PartialOrd, Debug)]
-pub enum TranscriptMessage {
-    ValidServerX509 {
-        server_name: String,
-        // The RFC9162 (Certificate Transparency 2) parameters are for
-        // diagnosis of problems - they make it possible to track down
-        // what certificate was used.
-        #[serde_as(as = "Base64<Standard, Unpadded>")]
-        rfc9162_log_id: [u8; 32],
-        rfc9162_timestamp: u64,
-    },
-    ServerToClient(#[serde_as(as = "Base64<Standard, Unpadded>")] Vec<u8>),
-    ClientToServer(#[serde_as(as = "Base64<Standard, Unpadded>")] Vec<u8>),
-    ClosedByClient,
-    ClosedByServer,
-}
-
-pub fn add_message_to_transcript<D: Write>(
-    transcript_digest: &mut D,
-    bincfg: Configuration,
-    msg: &TranscriptMessage,
-) -> anyhow::Result<()> {
-    bincode::serde::encode_into_std_write(msg, transcript_digest, bincfg)?;
-    Ok(())
 }

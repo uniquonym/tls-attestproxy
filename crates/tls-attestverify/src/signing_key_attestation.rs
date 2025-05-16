@@ -13,7 +13,7 @@ use serde_with::serde_as;
 use sha2::{Digest, Sha256};
 
 #[serde_as]
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Debug)]
 pub struct AttestationRaw {
     // Serialised TPMS_ATTEST structure.
     // 32 bit - TPM_GENERATED_VALUE tag (0xFF544347)

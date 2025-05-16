@@ -13,11 +13,13 @@ use std::{
 use actix_web::{web::Data, App};
 use rsa::{BigUint, RsaPublicKey};
 use tempfile::{Builder, TempDir};
-use tls_attestclient::{
-    certify_protocol_client::{self, CertifyOutcome, ProxyInfo},
+use tls_attestclient::certify_protocol_client::{self, CertifyOutcome, ProxyInfo};
+use tls_attestverify::{
+    signed_transcript::SignedTranscript,
     signing_key_attestation::{
         calculate_pcr_policy_hash, AttestationRaw, PCRHash, PolicyHash, TrustedPCRSet,
     },
+    validator::verify_transcript,
 };
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tss_esapi::{
@@ -228,7 +230,7 @@ async fn certify_protocol_happy_path_works() {
             ws_uri: format!("ws://{}:{}", serv_addr.ip(), serv_addr.port())
                 .parse()
                 .unwrap(),
-            attestation_pubkey: pubkey,
+            attestation_pubkey: pubkey.clone(),
             allowed_proxy_pcrs: [get_current_pcrs_as_trusted(&mut tpm.context)].into(),
         },
     )
@@ -249,16 +251,33 @@ async fn certify_protocol_happy_path_works() {
     session.flush().await.unwrap();
     // Reading is essential before closing for TLS stack to actually send closing.
     loop {
-      let mut readbuf: [u8; 1024] = [0; 1024];
-      let n = session.read(&mut readbuf).await.unwrap();
-      if n == 0 {
-        break;
-      }
+        let mut readbuf: [u8; 1024] = [0; 1024];
+        let n = session.read(&mut readbuf).await.unwrap();
+        if n == 0 {
+            break;
+        }
     }
 
+    let bincfg = bincode::config::standard();
+
     let result = session.finalise().await;
-    match result {
-        CertifyOutcome::Success { .. } => {}
+
+    // We encode and decode to simulate a real exchange...
+    let signed_transcript = match result {
+        CertifyOutcome::Success { signed_transcript } => {
+            bincode::serde::encode_to_vec(signed_transcript, bincfg).unwrap()
+        }
         e => panic!("Attestation failed with outcome {:#?}", e),
-    }
+    };
+
+    let (signed_transcript, _): (SignedTranscript, usize) =
+        bincode::serde::decode_from_slice(&signed_transcript, bincfg).unwrap();
+
+    let trusted_policy_hashes: HashSet<PolicyHash> = [calculate_pcr_policy_hash(
+        &get_current_pcrs_as_trusted(&mut tpm.context),
+    )]
+    .into();
+
+    verify_transcript(&signed_transcript, &pubkey, &trusted_policy_hashes)
+        .expect("verify_transcript failed");
 }

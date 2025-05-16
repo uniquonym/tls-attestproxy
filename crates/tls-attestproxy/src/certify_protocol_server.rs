@@ -12,6 +12,10 @@ use futures_util::StreamExt;
 use rustls::{pki_types::ServerName, ClientConfig, ClientConnection};
 use rustls_platform_verifier::ConfigVerifierExt;
 use sha2::{Digest, Sha256};
+use tls_attestverify::{
+    signed_message::{add_message_to_transcript, SignableMessage},
+    signed_transcript::TranscriptMessage,
+};
 use tss_esapi::Context;
 use x509_cert::{ext::pkix::SignedCertificateTimestampList, Certificate};
 
@@ -19,14 +23,10 @@ use crate::{
     message_signing::sign_message, secure_connection_server::ServerSecureConnection,
     signing_key::AttestedKey,
 };
-use tls_attestclient::{
-    certify_protocol::{
-        add_message_to_transcript, ClientIntroMessage, ClientToServerMessage,
-        ServerToClientMessage, TargetServernameV1, TranscriptMessage,
-    },
-    signed_message::SignableMessage,
-    signing_key_attestation::AttestationRaw,
+use tls_attestclient::certify_protocol::{
+    ClientIntroMessage, ClientToServerMessage, ServerToClientMessage, TargetServernameV1,
 };
+use tls_attestverify::signing_key_attestation::AttestationRaw;
 
 async fn read_next_ws_binary(
     session: &mut Session,

@@ -5,11 +5,11 @@ use p256::PublicKey;
 use p256::ecdh::EphemeralSecret;
 use rsa::rand_core::CryptoRngCore;
 
-use crate::message_verification::MessageVerification;
 use crate::secure_connection::{
     FlowDirection, SecureConnectionState, create_nonce, derive_cipher_key,
 };
-use crate::signed_message::{SignableMessage, SignedMessage};
+use tls_attestverify::message_verification::MessageVerification;
+use tls_attestverify::signed_message::{SignableMessage, SignedMessage};
 
 pub struct SecureConnectionHandshake {
     ephemeral: EphemeralSecret,

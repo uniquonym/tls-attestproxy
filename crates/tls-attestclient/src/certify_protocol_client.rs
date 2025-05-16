@@ -6,7 +6,10 @@ use http::{
     Uri,
     uri::{Parts, PathAndQuery},
 };
-use serde::{Deserialize, Serialize};
+use tls_attestverify::{
+    signed_message::SignedMessage,
+    signed_transcript::{SignedTranscript, TranscriptMessage},
+};
 use tokio::{
     io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, DuplexStream},
     net::{TcpStream, ToSocketAddrs},
@@ -18,13 +21,14 @@ use zerocopy::IntoBytes;
 use crate::{
     certify_protocol::{
         ClientIntroMessage, ClientToServerMessage, ServerToClientMessage, TargetServernameV1,
-        TranscriptMessage,
     },
-    message_verification::MessageVerification,
     secure_connection_client::SecureConnectionClient,
-    signed_message::SignedMessage,
+};
+use tls_attestverify::{
+    message_verification::MessageVerification,
     signing_key_attestation::{AttestationRaw, TrustedPCRSet, calculate_pcr_policy_hash},
 };
+
 use futures_util::{SinkExt, StreamExt};
 
 pub struct ProxyInfo {
@@ -57,6 +61,7 @@ async fn core_loop(
     tls: &mut TcpStream,
     local: &mut DuplexStream,
     secure_connection: &mut SecureConnectionClient,
+    attestation: AttestationRaw,
 ) -> anyhow::Result<CertifyOutcome> {
     let mut transcript: Vec<TranscriptMessage> = vec![];
     let mut local_buf: [u8; 2048] = [0; 2048];
@@ -150,7 +155,7 @@ async fn core_loop(
                                 let _ = local.shutdown().await;
                             },
                             ServerToClientMessage::TranscriptAvailable(signed_message) => {
-                                return Ok(CertifyOutcome::Success { signed_transcript: SignedTranscript { attestation: signed_message, transcript } })
+                                return Ok(CertifyOutcome::Success { signed_transcript: SignedTranscript { key_attestation: attestation, message_attestation: signed_message, transcript } })
                             },
                             ServerToClientMessage::ValidServerX509 { rfc9162_log_id, rfc9162_timestamp } => {
                                 transcript.push(TranscriptMessage::ValidServerX509 { server_name: server_name.to_owned(), rfc9162_log_id: rfc9162_log_id.clone(), rfc9162_timestamp: rfc9162_timestamp.to_owned() });
@@ -164,12 +169,6 @@ async fn core_loop(
             }
         }
     }
-}
-
-#[derive(Serialize, Deserialize, Eq, PartialEq, Debug)]
-pub struct SignedTranscript {
-    attestation: SignedMessage,
-    transcript: Vec<TranscriptMessage>
 }
 
 #[derive(Debug)]
@@ -315,6 +314,7 @@ pub async fn certify_tls<A: ToSocketAddrs>(
             &mut tls_stream,
             &mut local,
             &mut secure_connection,
+            attest,
         )
         .await
         {

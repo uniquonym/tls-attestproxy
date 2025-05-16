@@ -17,6 +17,7 @@ publish = false
 [dependencies]
 actix-router = { version = "0.5", default-features = false, features = ["http", "unicode"] }
 actix-rt = { version = "2" }
+base64 = { version = "0.22" }
 byteorder = { version = "1" }
 bytes = { version = "1" }
 const-oid = { version = "0.9", default-features = false, features = ["db", "std"] }
@@ -26,15 +27,16 @@ digest = { version = "0.10", features = ["mac", "oid", "std"] }
 elliptic-curve = { version = "0.13", features = ["ecdh", "hazmat", "pem", "serde", "std"] }
 futures-core = { version = "0.3" }
 getrandom = { version = "0.3", default-features = false, features = ["std"] }
-hmac = { version = "0.12", default-features = false, features = ["reset"] }
 log = { version = "0.4", default-features = false, features = ["std"] }
 memchr = { version = "2" }
 mio = { version = "1", features = ["net", "os-ext"] }
 num-traits = { version = "0.2", features = ["i128", "libm"] }
 once_cell = { version = "1" }
+p256 = { version = "0.13", features = ["ecdh", "serde"] }
 ppv-lite86 = { version = "0.2", default-features = false, features = ["simd", "std"] }
 rustls = { version = "0.23", default-features = false, features = ["logging", "ring", "std"] }
 serde = { version = "1", features = ["alloc", "derive"] }
+sha2 = { version = "0.10", features = ["oid"] }
 smallvec = { version = "1", default-features = false, features = ["const_generics"] }
 tokio = { version = "1", features = ["io-util", "macros", "net", "parking_lot", "rt", "signal", "sync", "time"] }
 tracing = { version = "0.1", features = ["log"] }
@@ -57,5 +59,9 @@ tracing-core = { version = "0.1", default-features = false, features = ["std"] }
 
 [target.x86_64-unknown-linux-gnu.dependencies]
 bitflags = { version = "2", default-features = false, features = ["std"] }
+libc = { version = "0.2" }
+
+[target.x86_64-unknown-linux-gnu.build-dependencies]
+libc = { version = "0.2" }
 
 ### END HAKARI SECTION
