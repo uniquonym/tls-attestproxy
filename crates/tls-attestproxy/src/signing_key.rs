@@ -184,8 +184,7 @@ pub fn apply_auth_policy(context: &mut Context) -> anyhow::Result<()> {
     }
 
     context.set_sessions((None, None, None));
-    let (_, pcr_list, digest_list) =
-    context.pcr_read(relevant_pcrs()?).context("Reading PCRs")?;
+    let (_, pcr_list, digest_list) = context.pcr_read(relevant_pcrs()?).context("Reading PCRs")?;
     let (_, auth_sess) = create_auth_policy(context, &pcr_list, &digest_list)?;
     context.set_sessions((Some(auth_sess), None, None));
     Ok(())
